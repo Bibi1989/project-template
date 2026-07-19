@@ -1,0 +1,33 @@
+# Example variable values — copy to terraform.tfvars (do not commit secrets).
+project_id  = "YOUR_GCP_PROJECT_ID"
+region      = "us-central1"
+name_prefix = "turnkey"
+environment = "production"
+
+# GitHub Actions WIF (set to your org/repo)
+enable_github_wif = true
+github_repository = "YOUR_ORG/YOUR_REPO"
+
+# Restrict this in production to your office / CI egress CIDRs
+gke_master_authorized_cidrs = [
+  {
+    cidr_block   = "0.0.0.0/0"
+    display_name = "bootstrap-open"
+  }
+]
+
+gke_node_machine_type = "e2-standard-4"
+gke_min_node_count    = 1
+gke_max_node_count    = 3
+
+artifact_registry_repository_id = "turnkey-containers"
+
+# Override with real secrets via TF_VAR_app_secrets or a secure tfvars file
+# app_secrets = {
+#   DATABASE_URL   = "postgresql://..."
+#   API_SECRET_KEY = "..."
+#   CORS_ORIGINS   = "https://example.com"
+# }
+
+ingress_nginx_chart_version = "4.12.0"
+ingress_nginx_replica_count = 2

@@ -1,0 +1,22 @@
+{{- /*
+Post-install notes
+*/ -}}
+============================================================
+ Turnkey app released: {{ .Release.Name }}
+ Namespace: {{ .Release.Namespace }}
+============================================================
+
+Ingress class : {{ .Values.ingress.className }}
+Frontend svc  : {{ .Values.frontend.service.name }}:{{ .Values.frontend.service.port }}
+Backend svc   : {{ .Values.backend.service.name }}:{{ .Values.backend.service.port }}
+
+Routing:
+  /          → {{ .Values.frontend.service.name }}
+  /api/(.*)  → {{ .Values.backend.service.name }}  (rewrite /$1)
+
+Get the external Load Balancer IP (ingress-nginx):
+  kubectl -n ingress-nginx get svc ingress-nginx-controller \
+    -o jsonpath='{.status.loadBalancer.ingress[0].ip}{"\n"}'
+
+Verify SecretProviderClass:
+  kubectl -n {{ .Release.Namespace }} get secretproviderclass {{ .Values.secrets.providerClassName }}

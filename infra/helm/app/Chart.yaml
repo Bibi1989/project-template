@@ -1,0 +1,14 @@
+apiVersion: v2
+name: turnkey-app
+description: Dual-service (frontend + backend) Helm chart with GCP Secret Manager CSI and NGINX Ingress path routing
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - gke
+  - fastapi
+  - nextjs
+  - ingress-nginx
+  - secret-manager
+maintainers:
+  - name: Turnkey Platform

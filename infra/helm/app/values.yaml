@@ -1,0 +1,161 @@
+# =============================================================================
+# Default values — override via --set / CI / environment values files
+# =============================================================================
+
+global:
+  projectId: ""
+  region: us-central1
+  environment: production
+  # GCP SA email for Workload Identity (from terraform output workload_app_service_account)
+  gcpServiceAccount: ""
+  # Kubernetes namespace is usually set by helm --namespace
+  namePrefix: turnkey
+
+nameOverride: ""
+fullnameOverride: ""
+
+# -----------------------------------------------------------------------------
+# Frontend (Next.js) — ClusterIP :3000
+# -----------------------------------------------------------------------------
+frontend:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: us-central1-docker.pkg.dev/PROJECT/turnkey-containers/frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    name: service-frontend
+    type: ClusterIP
+    port: 3000
+    targetPort: 3000
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  probes:
+    liveness:
+      path: /
+      initialDelaySeconds: 20
+      periodSeconds: 15
+      timeoutSeconds: 5
+      failureThreshold: 3
+    readiness:
+      path: /
+      initialDelaySeconds: 10
+      periodSeconds: 10
+      timeoutSeconds: 5
+      failureThreshold: 3
+  env:
+    - name: NODE_ENV
+      value: production
+    - name: PORT
+      value: "3000"
+    - name: NEXT_PUBLIC_API_BASE_URL
+      value: /api
+    - name: ENVIRONMENT
+      value: production
+
+# -----------------------------------------------------------------------------
+# Backend (FastAPI) — ClusterIP :8000
+# -----------------------------------------------------------------------------
+backend:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: us-central1-docker.pkg.dev/PROJECT/turnkey-containers/backend
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    name: service-backend
+    type: ClusterIP
+    port: 8000
+    targetPort: 8000
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 750m
+      memory: 768Mi
+  probes:
+    liveness:
+      path: /health
+      initialDelaySeconds: 15
+      periodSeconds: 15
+      timeoutSeconds: 5
+      failureThreshold: 3
+    readiness:
+      path: /health
+      initialDelaySeconds: 8
+      periodSeconds: 8
+      timeoutSeconds: 5
+      failureThreshold: 3
+  env:
+    - name: APP_NAME
+      value: turnkey-api
+    - name: ENVIRONMENT
+      value: production
+    - name: PORT
+      value: "8000"
+
+# -----------------------------------------------------------------------------
+# GCP Secret Manager CSI — SecretProviderClass
+# secretKeys map env var names → Secret Manager secret resource names.
+# Leave empty to auto-derive from global.projectId + global.namePrefix.
+# -----------------------------------------------------------------------------
+secrets:
+  enabled: true
+  providerClassName: turnkey-app-secrets
+  # Mount path inside containers for CSI volume
+  mountPath: /var/secrets
+  # Sync CSI objects into a native K8s Secret for envFrom
+  syncSecretName: turnkey-app-env
+  # Logical keys must match terraform var.app_secrets keys
+  secretKeys:
+    DATABASE_URL: ""
+    API_SECRET_KEY: ""
+    CORS_ORIGINS: ""
+  # When secretKeys values are empty, templates build:
+  # projects/{projectId}/secrets/{namePrefix}-{kebab-key}/versions/latest
+
+# -----------------------------------------------------------------------------
+# Workload Identity ServiceAccount
+# -----------------------------------------------------------------------------
+serviceAccount:
+  create: true
+  name: turnkey-app
+  annotations: {}
+
+# -----------------------------------------------------------------------------
+# Ingress — unified NGINX path routing
+#   /      → service-frontend:3000
+#   /api/* → service-backend:8000  (rewrite strips /api prefix)
+# -----------------------------------------------------------------------------
+ingress:
+  enabled: true
+  className: nginx
+  name: turnkey-ingress
+  host: "" # e.g. app.example.com — empty = catch-all host
+  tls:
+    enabled: false
+    secretName: turnkey-tls
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "32m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+  paths:
+    api:
+      # Captures path after /api for rewrite-target /$1
+      path: /api(?:/|$)(.*)
+      pathType: ImplementationSpecific
+      serviceName: service-backend
+      servicePort: 8000
+    frontend:
+      path: /?(.*)
+      pathType: ImplementationSpecific
+      serviceName: service-frontend
+      servicePort: 3000

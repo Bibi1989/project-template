@@ -1,0 +1,133 @@
+# =============================================================================
+# Deploy Frontend → Google Artifact Registry → Helm upgrade on GKE
+# Triggers on pushes to main that touch frontend/ (or this workflow).
+#
+# Required GitHub repository variables / secrets:
+#   vars.GCP_PROJECT_ID
+#   vars.GCP_REGION                 (e.g. us-central1)
+#   vars.GAR_REPOSITORY             (e.g. turnkey-containers)
+#   vars.GKE_CLUSTER_NAME
+#   vars.GKE_CLUSTER_LOCATION       (region or zone)
+#   vars.HELM_RELEASE_NAME          (e.g. turnkey-app)
+#   vars.HELM_NAMESPACE             (e.g. turnkey)
+#   vars.WIF_PROVIDER               (//iam.googleapis.com/projects/.../providers/...)
+#   vars.WIF_SERVICE_ACCOUNT        (github-actions@PROJECT.iam.gserviceaccount.com)
+# =============================================================================
+name: Deploy Frontend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/deploy-frontend.yml"
+      - "frontend/.github/workflows/deploy-frontend.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-frontend-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  SERVICE: frontend
+  IMAGE_NAME: frontend
+  WORKING_DIR: frontend
+
+jobs:
+  build-and-deploy:
+    name: Build, Push & Helm Upgrade
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (Workload Identity Federation)
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.WIF_PROVIDER }}
+          service_account: ${{ vars.WIF_SERVICE_ACCOUNT }}
+          token_format: access_token
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+
+      - name: Configure Docker for Artifact Registry
+        run: |
+          gcloud auth configure-docker "${{ vars.GCP_REGION }}-docker.pkg.dev" --quiet
+
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ vars.GKE_CLUSTER_NAME }}
+          location: ${{ vars.GKE_CLUSTER_LOCATION }}
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.16.3
+
+      - name: Compute image coordinates
+        id: meta
+        run: |
+          REGION="${{ vars.GCP_REGION }}"
+          PROJECT="${{ vars.GCP_PROJECT_ID }}"
+          REPO="${{ vars.GAR_REPOSITORY }}"
+          SHA="${GITHUB_SHA}"
+          SHORT_SHA="${SHA:0:7}"
+          IMAGE="${REGION}-docker.pkg.dev/${PROJECT}/${REPO}/${{ env.IMAGE_NAME }}"
+          {
+            echo "image=${IMAGE}"
+            echo "tag=${SHA}"
+            echo "short_sha=${SHORT_SHA}"
+            echo "image_ref=${IMAGE}:${SHA}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build container image
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          docker build \
+            --build-arg NEXT_PUBLIC_API_BASE_URL=/api \
+            --tag "${{ steps.meta.outputs.image_ref }}" \
+            --tag "${{ steps.meta.outputs.image }}:latest" \
+            --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
+            .
+
+      - name: Push container image to Artifact Registry
+        run: |
+          docker push "${{ steps.meta.outputs.image_ref }}"
+          docker push "${{ steps.meta.outputs.image }}:latest"
+
+      - name: Helm upgrade (frontend image only)
+        run: |
+          helm upgrade --install "${{ vars.HELM_RELEASE_NAME }}" ./infra/helm/app \
+            --namespace "${{ vars.HELM_NAMESPACE }}" \
+            --create-namespace \
+            --atomic \
+            --wait \
+            --timeout 10m \
+            --set "frontend.image.repository=${{ steps.meta.outputs.image }}" \
+            --set "frontend.image.tag=${{ steps.meta.outputs.tag }}" \
+            --set "frontend.image.pullPolicy=IfNotPresent" \
+            --set "global.projectId=${{ vars.GCP_PROJECT_ID }}" \
+            --set "global.region=${{ vars.GCP_REGION }}" \
+            --reuse-values
+
+      - name: Summary
+        run: |
+          {
+            echo "## Frontend deploy"
+            echo "- Image: \`${{ steps.meta.outputs.image_ref }}\`"
+            echo "- Release: \`${{ vars.HELM_RELEASE_NAME }}\`"
+            echo "- Namespace: \`${{ vars.HELM_NAMESPACE }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
