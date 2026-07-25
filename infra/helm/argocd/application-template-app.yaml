@@ -33,9 +33,9 @@ spec:
   syncPolicy:
     # Local lab: sync manually from the UI.
     # For auto-sync, uncomment:
-    # automated:
-    #   prune: true
-    #   selfHeal: true
+    automated:
+      prune: true
+      selfHeal: true
     syncOptions:
       - CreateNamespace=true
   # Ignore noisy fields if needed:
