@@ -1,0 +1,65 @@
+---
+description: Next.js App Router Architecture & Service-Based Folder Structure
+globs: "**/*.ts, **/*.tsx"
+alwaysApply: false
+---
+
+# Next.js App Router Architectural Guidelines
+
+## Core Principles
+
+1. **Service-Based Data Layer**: Domain logic (queries, actions, clients) lives in `src/services/<service-name>/`.
+2. **Thin `app/` Directory**: `src/app/` holds pages, layouts, and route handlers only — no business logic or UI.
+3. **Shared UI / Hooks / Types**: Components, hooks, and types live at the `src/` root — not inside services.
+4. **Server Components by Default**: Use RSC. Add `'use client'` only for state, effects, or event listeners.
+
+## Folder Structure
+
+```text
+src/
+├── app/                    # Routing only (pages, layouts, route handlers)
+├── services/
+│   └── <service-name>/
+│       ├── actions/        # 'use server' mutations (Zod + DB writes)
+│       ├── queries/        # Async reads (called by RSC / route handlers)
+│       └── clients/        # Third-party SDK wrappers & API clients
+├── components/             # UI components (RSC by default)
+├── hooks/                  # React hooks ('use client' when required)
+├── types/                  # TypeScript types & Zod schemas
+└── lib/                    # Shared infra (db pool, env helpers)
+```
+
+## Do / Don't
+
+```tsx
+// ❌ BAD — logic and UI in the route file
+// src/app/page.tsx
+export default async function Page() {
+  const rows = await db.query("SELECT * FROM items");
+  return <ul>{rows.map(...)}</ul>;
+}
+
+// ✅ GOOD — thin route, service query, shared component
+// src/app/page.tsx
+import { ItemsList } from "@/components/items-list";
+export default function Page() {
+  return <ItemsList />;
+}
+
+// src/services/items/queries/get-items.ts
+import type { Item } from "@/types/items";
+export async function getItems(): Promise<Item[]> { /* DB read */ }
+
+// src/components/items-list.tsx
+import { getItems } from "@/services/items/queries/get-items";
+export async function ItemsList() {
+  const items = await getItems();
+  return <ul>...</ul>;
+}
+```
+
+## Conventions
+
+- Route handlers in `src/app/api/**` only orchestrate; call `services/*/queries` or `actions`
+- Import UI from `@/components/*`, types from `@/types/*`, hooks from `@/hooks/*`
+- Name files by intent: `get-items.ts`, `create-item.ts`, `items-list.tsx`

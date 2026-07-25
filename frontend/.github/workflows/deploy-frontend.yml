@@ -5,11 +5,11 @@
 # Required GitHub repository variables / secrets:
 #   vars.GCP_PROJECT_ID
 #   vars.GCP_REGION                 (e.g. us-central1)
-#   vars.GAR_REPOSITORY             (e.g. turnkey-containers)
+#   vars.GAR_REPOSITORY             (e.g. template-containers)
 #   vars.GKE_CLUSTER_NAME
 #   vars.GKE_CLUSTER_LOCATION       (region or zone)
-#   vars.HELM_RELEASE_NAME          (e.g. turnkey-app)
-#   vars.HELM_NAMESPACE             (e.g. turnkey)
+#   vars.HELM_RELEASE_NAME          (e.g. template-app)
+#   vars.HELM_NAMESPACE             (e.g. template)
 #   vars.WIF_PROVIDER               (//iam.googleapis.com/projects/.../providers/...)
 #   vars.WIF_SERVICE_ACCOUNT        (github-actions@PROJECT.iam.gserviceaccount.com)
 # =============================================================================

@@ -1,32 +1,47 @@
 # =============================================================================
-# Default values — override via --set / CI / environment values files
+# LOCAL defaults — Docker Desktop / kind / minikube
+#
+# Images are plain local tags (no GCP registry). Build + load into your cluster:
+#   docker build -t template-frontend:local ../../frontend
+#   docker build -t template-backend:local  ../../backend
+#   # kind:   kind load docker-image template-frontend:local
+#   #         kind load docker-image template-backend:local
+#
+# Install:
+#   helm upgrade --install template-app . -n template --create-namespace
+#
+# Naming: change global.namePrefix (sync with infra/config.env NAME_PREFIX).
+# Production / GKE: also pass -f values-production.yaml (see that file).
 # =============================================================================
 
 global:
   projectId: ""
-  region: us-central1
-  environment: production
-  # GCP SA email for Workload Identity (from terraform output workload_app_service_account)
+  region: ""
+  environment: local
   gcpServiceAccount: ""
-  # Kubernetes namespace is usually set by helm --namespace
-  namePrefix: turnkey
+  namePrefix: template
 
 nameOverride: ""
 fullnameOverride: ""
+
+# Bump via --set rolloutDate="$(date +%s)" to force a rolling restart
+rolloutDate: ""
 
 # -----------------------------------------------------------------------------
 # Frontend (Next.js) — ClusterIP :3000
 # -----------------------------------------------------------------------------
 frontend:
   enabled: true
-  replicaCount: 2
+  name: deployment-frontend
+  replicaCount: 1
   image:
-    repository: us-central1-docker.pkg.dev/PROJECT/turnkey-containers/frontend
-    tag: latest
-    pullPolicy: IfNotPresent
+    # Local image name — NOT a GCP Artifact Registry path
+    repository: template-frontend
+    tag: local
+    pullPolicy: Never # cluster must already have the image (Desktop / kind load)
   service:
     name: service-frontend
-    type: ClusterIP
+    type: NodePort
     port: 3000
     targetPort: 3000
   resources:
@@ -51,24 +66,33 @@ frontend:
       failureThreshold: 3
   env:
     - name: NODE_ENV
-      value: production
+      value: development
+    # host.docker.internal = Mac/Windows Docker Desktop / kind host (not localhost)
+    - name: DATABASE_URL
+      value: postgresql://postgres:postgres@host.docker.internal:5420/postgres
     - name: PORT
       value: "3000"
     - name: NEXT_PUBLIC_API_BASE_URL
       value: /api
+    - name: NEXT_PUBLIC_APP_URL
+      value: http://127.0.0.1:3000
+    # Absolute URL for RSC fetch → FastAPI (ClusterIP service name in-cluster)
+    - name: BACKEND_URL
+      value: http://service-backend:8000
     - name: ENVIRONMENT
-      value: production
+      value: local
 
 # -----------------------------------------------------------------------------
 # Backend (FastAPI) — ClusterIP :8000
 # -----------------------------------------------------------------------------
 backend:
-  enabled: true
-  replicaCount: 2
+  enabled: false
+  name: deployment-backend
+  replicaCount: 1
   image:
-    repository: us-central1-docker.pkg.dev/PROJECT/turnkey-containers/backend
-    tag: latest
-    pullPolicy: IfNotPresent
+    repository: template-backend
+    tag: local
+    pullPolicy: Never
   service:
     name: service-backend
     type: ClusterIP
@@ -96,60 +120,67 @@ backend:
       failureThreshold: 3
   env:
     - name: APP_NAME
-      value: turnkey-api
+      value: template-api
     - name: ENVIRONMENT
-      value: production
+      value: local
     - name: PORT
       value: "8000"
 
 # -----------------------------------------------------------------------------
-# GCP Secret Manager CSI — SecretProviderClass
-# secretKeys map env var names → Secret Manager secret resource names.
-# Leave empty to auto-derive from global.projectId + global.namePrefix.
+# Secrets — choose provider:
+#   kubernetes → kind: Secret (secret.yaml) — local / any cluster
+#   csi          → kind: SecretProviderClass — GCP Secret Manager
 # -----------------------------------------------------------------------------
 secrets:
   enabled: true
-  providerClassName: turnkey-app-secrets
-  # Mount path inside containers for CSI volume
+  provider: kubernetes # kubernetes | csi
+  # Native Secret stringData (used when provider=kubernetes)
+  stringData:
+    # Same host.docker.internal tip as frontend.env (pods ≠ host localhost)
+    DATABASE_URL: "postgresql://postgres:postgres@host.docker.internal:5420/postgres"
+    API_SECRET_KEY: "local-dev-change-me"
+    CORS_ORIGINS: "*"
+  # CSI / Secret Manager (used when provider=csi)
+  providerClassName: ""
   mountPath: /var/secrets
-  # Sync CSI objects into a native K8s Secret for envFrom
-  syncSecretName: turnkey-app-env
-  # Logical keys must match terraform var.app_secrets keys
+  syncSecretName: ""
+  csi:
+    provider: gcp
   secretKeys:
     DATABASE_URL: ""
     API_SECRET_KEY: ""
     CORS_ORIGINS: ""
-  # When secretKeys values are empty, templates build:
-  # projects/{projectId}/secrets/{namePrefix}-{kebab-key}/versions/latest
 
 # -----------------------------------------------------------------------------
-# Workload Identity ServiceAccount
+# ConfigMap — non-sensitive app config (kind: ConfigMap)
 # -----------------------------------------------------------------------------
+configMap:
+  enabled: true
+  name: "" # defaults to {namePrefix}-app-config
+  envFrom: true # inject all keys as environment variables
+  data:
+    APP_NAME: template-api
+    LOG_FORMAT: json
+
 serviceAccount:
   create: true
-  name: turnkey-app
+  name: ""
   annotations: {}
 
-# -----------------------------------------------------------------------------
-# Ingress — unified NGINX path routing
-#   /      → service-frontend:3000
-#   /api/* → service-backend:8000  (rewrite strips /api prefix)
-# -----------------------------------------------------------------------------
 ingress:
   enabled: true
   className: nginx
-  name: turnkey-ingress
-  host: "" # e.g. app.example.com — empty = catch-all host
+  name: ""
+  host: ""
   tls:
     enabled: false
-    secretName: turnkey-tls
+    secretName: ""
   annotations:
     nginx.ingress.kubernetes.io/proxy-body-size: "32m"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
   paths:
     api:
-      # Captures path after /api for rewrite-target /$1
       path: /api(?:/|$)(.*)
       pathType: ImplementationSpecific
       serviceName: service-backend
@@ -159,3 +190,39 @@ ingress:
       pathType: ImplementationSpecific
       serviceName: service-frontend
       servicePort: 3000
+
+monitoring:
+  scrapeAnnotations: true
+  podMonitoring:
+    enabled: false # GMP CRDs usually absent on local clusters
+    interval: 30s
+    backend:
+      path: /metrics
+    frontend:
+      enabled: false
+      path: /metrics
+
+logging:
+  level: debug
+  structured: "true"
+  configMap:
+    enabled: true
+
+autoscaling:
+  enabled: false
+  frontend:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  backend:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1

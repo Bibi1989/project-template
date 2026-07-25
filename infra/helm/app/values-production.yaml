@@ -1,8 +1,30 @@
-# Production-oriented overrides (optional)
-# Usage: helm upgrade --install ... -f values.yaml -f values-production.yaml
+# =============================================================================
+# PRODUCTION / GKE overrides
+#
+# Usage (layer on top of values.yaml):
+#   helm upgrade --install template-app . -n template --create-namespace \
+#     -f values.yaml -f values-production.yaml \
+#     --set global.projectId=$PROJECT \
+#     --set global.gcpServiceAccount=$GCP_SA \
+#     --set frontend.image.repository=$REGISTRY/frontend \
+#     --set frontend.image.tag=$TAG \
+#     --set backend.image.repository=$REGISTRY/backend \
+#     --set backend.image.tag=$TAG
+#
+# Replace PROJECT below, or always override repository via --set (recommended).
+# =============================================================================
+
+global:
+  environment: production
+  region: us-central1
+  # projectId + gcpServiceAccount: set via --set from Terraform outputs
 
 frontend:
   replicaCount: 3
+  image:
+    repository: us-central1-docker.pkg.dev/PROJECT/template-containers/frontend
+    tag: latest
+    pullPolicy: IfNotPresent
   resources:
     requests:
       cpu: 150m
@@ -10,9 +32,25 @@ frontend:
     limits:
       cpu: 1000m
       memory: 1Gi
+  env:
+    - name: NODE_ENV
+      value: production
+    - name: PORT
+      value: "3000"
+    - name: NEXT_PUBLIC_API_BASE_URL
+      value: /api
+    - name: BACKEND_URL
+      value: http://service-backend:8000
+    - name: ENVIRONMENT
+      value: production
 
 backend:
+  enabled: true
   replicaCount: 3
+  image:
+    repository: us-central1-docker.pkg.dev/PROJECT/template-containers/backend
+    tag: latest
+    pullPolicy: IfNotPresent
   resources:
     requests:
       cpu: 200m
@@ -20,9 +58,57 @@ backend:
     limits:
       cpu: 1500m
       memory: 1Gi
+  env:
+    - name: APP_NAME
+      value: template-api
+    - name: ENVIRONMENT
+      value: production
+    - name: PORT
+      value: "8000"
+
+# Secrets: use GCP Secret Manager CSI (overrides local kubernetes Secret)
+secrets:
+  enabled: true
+  provider: csi
+
+configMap:
+  enabled: true
+  envFrom: true
+  data:
+    APP_NAME: template-api
+    LOG_FORMAT: json
 
 ingress:
   annotations:
     nginx.ingress.kubernetes.io/proxy-body-size: "64m"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+
+logging:
+  level: info
+  structured: "true"
+
+monitoring:
+  scrapeAnnotations: true
+  podMonitoring:
+    enabled: true
+    interval: 15s
+
+autoscaling:
+  enabled: true
+  frontend:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 12
+    targetCPUUtilizationPercentage: 65
+    targetMemoryUtilizationPercentage: 75
+  backend:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 15
+    targetCPUUtilizationPercentage: 65
+    targetMemoryUtilizationPercentage: 75
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2

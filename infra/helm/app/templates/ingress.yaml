@@ -24,22 +24,25 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ .Values.ingress.name }}
+  name: {{ include "app.ingressName" . }}
   labels:
-    {{- include "turnkey-app.labels" . | nindent 4 }}
+    {{- include "app.labels" . | nindent 4 }}
   annotations:
     nginx.ingress.kubernetes.io/proxy-body-size: {{ index .Values.ingress.annotations "nginx.ingress.kubernetes.io/proxy-body-size" | default "32m" | quote }}
     nginx.ingress.kubernetes.io/proxy-read-timeout: {{ index .Values.ingress.annotations "nginx.ingress.kubernetes.io/proxy-read-timeout" | default "60" | quote }}
     nginx.ingress.kubernetes.io/proxy-send-timeout: {{ index .Values.ingress.annotations "nginx.ingress.kubernetes.io/proxy-send-timeout" | default "60" | quote }}
     nginx.ingress.kubernetes.io/use-regex: "true"
     nginx.ingress.kubernetes.io/rewrite-target: "/$1"
+    kubernetes.io/ingress.class: {{ .Values.ingress.className }}
+    nginx.ingress.kubernetes.io/client-body-buffer-size: {{ index .Values.ingress.annotations "nginx.ingress.kubernetes.io/client-body-buffer-size" | default "64k" | quote }}
+    nginx.ingress.kubernetes.io/large-client-header-buffers: {{ index .Values.ingress.annotations "nginx.ingress.kubernetes.io/large-client-header-buffers" | default "4 64k" | quote }}
 spec:
   ingressClassName: {{ .Values.ingress.className }}
   {{- if and .Values.ingress.tls.enabled .Values.ingress.host }}
   tls:
     - hosts:
         - {{ .Values.ingress.host | quote }}
-      secretName: {{ .Values.ingress.tls.secretName }}
+      secretName: {{ include "app.tlsSecretName" . }}
   {{- end }}
   rules:
 {{- if .Values.ingress.host }}

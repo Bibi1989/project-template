@@ -4,12 +4,12 @@ kind: Service
 metadata:
   name: {{ .Values.frontend.service.name }}
   labels:
-    {{- include "turnkey-app.labels" . | nindent 4 }}
+    {{- include "app.labels" . | nindent 4 }}
     app.kubernetes.io/component: frontend
 spec:
   type: {{ .Values.frontend.service.type }}
   selector:
-    {{- include "turnkey-app.selectorLabels" . | nindent 4 }}
+    {{- include "app.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: frontend
   ports:
     - name: http

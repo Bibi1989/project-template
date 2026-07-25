@@ -1,6 +1,4 @@
-# =============================================================================
-# Terraform — providers & required versions
-# =============================================================================
+# Providers — Terraform talks to GCP, Kubernetes, and Helm
 
 terraform {
   required_version = ">= 1.6.0"
@@ -14,24 +12,20 @@ terraform {
       source  = "hashicorp/google-beta"
       version = "~> 6.14"
     }
-    helm = {
-      source  = "hashicorp/helm"
-      version = "~> 2.17"
-    }
     kubernetes = {
       source  = "hashicorp/kubernetes"
       version = "~> 2.35"
     }
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.6"
+    helm = {
+      source  = "hashicorp/helm"
+      version = "~> 2.17"
     }
   }
 
-  # Uncomment and configure for remote state in production:
+  # Production: store state in GCS
   # backend "gcs" {
   #   bucket = "YOUR_TF_STATE_BUCKET"
-  #   prefix = "turnkey/infra"
+  #   prefix = "template/infra"
   # }
 }
 
@@ -44,9 +38,6 @@ provider "google-beta" {
   project = var.project_id
   region  = var.region
 }
-
-# Kubernetes & Helm providers are configured after the GKE cluster exists.
-# Data sources below resolve once google_container_cluster.primary is ready.
 
 data "google_client_config" "default" {}
 

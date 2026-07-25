@@ -1,0 +1,39 @@
+{{- if .Values.monitoring.podMonitoring.enabled }}
+{{- if .Values.backend.enabled }}
+apiVersion: monitoring.googleapis.com/v1
+kind: PodMonitoring
+metadata:
+  name: backend
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  selector:
+    matchLabels:
+      {{- include "app.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: backend
+  endpoints:
+    - port: http
+      path: {{ .Values.monitoring.podMonitoring.backend.path }}
+      interval: {{ .Values.monitoring.podMonitoring.interval }}
+{{- end }}
+{{- if and .Values.frontend.enabled .Values.monitoring.podMonitoring.frontend.enabled }}
+---
+apiVersion: monitoring.googleapis.com/v1
+kind: PodMonitoring
+metadata:
+  name: frontend
+  labels:
+    {{- include "app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+spec:
+  selector:
+    matchLabels:
+      {{- include "app.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: frontend
+  endpoints:
+    - port: http
+      path: {{ .Values.monitoring.podMonitoring.frontend.path }}
+      interval: {{ .Values.monitoring.podMonitoring.interval }}
+{{- end }}
+{{- end }}

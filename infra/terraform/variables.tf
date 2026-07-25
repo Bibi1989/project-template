@@ -1,186 +1,51 @@
-# =============================================================================
-# Terraform — input variables (all externally configurable)
-# =============================================================================
+# Variables — only what you usually change
+#
+# Everything else uses sensible defaults inside the .tf files.
 
 variable "project_id" {
-  description = "GCP project ID that owns all turnkey resources."
+  description = "GCP project ID"
   type        = string
 }
 
 variable "region" {
-  description = "Primary GCP region for regional resources (GAR, GKE, subnets)."
+  description = "GCP region (GKE, GAR, buckets)"
   type        = string
   default     = "us-central1"
 }
 
 variable "name_prefix" {
-  description = "Short prefix applied to resource names (e.g. turnkey)."
+  description = "Prefix for resource names. Keep in sync with infra/config.env NAME_PREFIX and Helm global.namePrefix."
   type        = string
-  default     = "turnkey"
+  default     = "template"
 }
 
-variable "environment" {
-  description = "Environment label (production, staging, etc.)."
+variable "github_repository" {
+  description = "GitHub repo allowed to deploy via WIF (org/name)"
   type        = string
-  default     = "production"
 }
 
-# -----------------------------------------------------------------------------
-# Networking
-# -----------------------------------------------------------------------------
-
-variable "vpc_cidr" {
-  description = "Primary CIDR for the custom VPC subnet (private nodes)."
+variable "alert_email" {
+  description = "Email for monitoring alerts (empty = no email alerts)"
   type        = string
-  default     = "10.10.0.0/20"
+  default     = ""
 }
-
-variable "pods_cidr" {
-  description = "Secondary CIDR range for GKE Pods."
-  type        = string
-  default     = "10.20.0.0/16"
-}
-
-variable "services_cidr" {
-  description = "Secondary CIDR range for GKE Services."
-  type        = string
-  default     = "10.30.0.0/20"
-}
-
-variable "master_ipv4_cidr_block" {
-  description = "Private master endpoint CIDR (/28)."
-  type        = string
-  default     = "172.16.0.0/28"
-}
-
-# -----------------------------------------------------------------------------
-# GKE
-# -----------------------------------------------------------------------------
-
-variable "gke_release_channel" {
-  description = "GKE release channel (RAPID, REGULAR, STABLE)."
-  type        = string
-  default     = "REGULAR"
-}
-
-variable "gke_node_machine_type" {
-  description = "Machine type for the default node pool."
-  type        = string
-  default     = "e2-standard-4"
-}
-
-variable "gke_node_disk_size_gb" {
-  description = "Boot disk size (GB) for GKE nodes."
-  type        = number
-  default     = 100
-}
-
-variable "gke_min_node_count" {
-  description = "Minimum nodes per zone for autoscaling."
-  type        = number
-  default     = 1
-}
-
-variable "gke_max_node_count" {
-  description = "Maximum nodes per zone for autoscaling."
-  type        = number
-  default     = 3
-}
-
-variable "gke_initial_node_count" {
-  description = "Initial node count per zone."
-  type        = number
-  default     = 1
-}
-
-variable "gke_enable_private_nodes" {
-  description = "Place GKE nodes on private IPs only."
-  type        = bool
-  default     = true
-}
-
-variable "gke_enable_private_endpoint" {
-  description = "If true, master API is private-only (requires bastion/VPN)."
-  type        = bool
-  default     = false
-}
-
-variable "gke_master_authorized_cidrs" {
-  description = "CIDR blocks allowed to reach the GKE control plane."
-  type = list(object({
-    cidr_block   = string
-    display_name = string
-  }))
-  default = [
-    {
-      cidr_block   = "0.0.0.0/0"
-      display_name = "open-for-bootstrap"
-    }
-  ]
-}
-
-# -----------------------------------------------------------------------------
-# Artifact Registry
-# -----------------------------------------------------------------------------
-
-variable "artifact_registry_repository_id" {
-  description = "Artifact Registry repository ID for Docker images."
-  type        = string
-  default     = "turnkey-containers"
-}
-
-# -----------------------------------------------------------------------------
-# Secrets (application environment)
-# -----------------------------------------------------------------------------
 
 variable "app_secrets" {
-  description = "Map of Secret Manager secret IDs → secret payload strings."
+  description = "App secrets stored in Secret Manager (key → value)"
   type        = map(string)
   sensitive   = true
   default = {
-    DATABASE_URL  = "postgresql://user:pass@db:5432/app"
+    DATABASE_URL   = "postgresql://user:pass@db:5432/app"
     API_SECRET_KEY = "change-me-in-production"
     CORS_ORIGINS   = "*"
   }
 }
 
-# -----------------------------------------------------------------------------
-# Ingress NGINX (Helm)
-# -----------------------------------------------------------------------------
-
-variable "ingress_nginx_namespace" {
-  description = "Namespace for the ingress-nginx controller."
-  type        = string
-  default     = "ingress-nginx"
-}
-
-variable "ingress_nginx_chart_version" {
-  description = "Official ingress-nginx Helm chart version."
-  type        = string
-  default     = "4.12.0"
-}
-
-variable "ingress_nginx_replica_count" {
-  description = "Number of ingress-nginx controller replicas."
-  type        = number
-  default     = 2
-}
-
-variable "enable_http_load_balancer" {
-  description = "Expose ingress-nginx via an external GCP Network Load Balancer."
-  type        = bool
-  default     = true
-}
-
-# -----------------------------------------------------------------------------
-# Labels
-# -----------------------------------------------------------------------------
-
-variable "labels" {
-  description = "Common labels applied to GCP resources."
-  type        = map(string)
-  default = {
+# Shared names / labels used by every resource file
+locals {
+  name   = var.name_prefix
+  labels = {
     managed-by  = "terraform"
-    architecture = "turnkey-gke"
+    environment = "production"
   }
 }
