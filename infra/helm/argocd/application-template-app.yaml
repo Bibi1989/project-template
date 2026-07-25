@@ -6,6 +6,7 @@
 #
 # Replace REPLACE_WITH_YOUR_GIT_REPO with e.g.
 #   https://github.com/YOUR_ORG/YOUR_REPO.git
+
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
