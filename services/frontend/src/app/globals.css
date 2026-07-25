@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-plex), "Segoe UI", system-ui, sans-serif;
+  --font-display: var(--font-syne), "Segoe UI", system-ui, sans-serif;
+  --font-mono: var(--font-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  --color-surface: #0b1218;
+  --color-surface-2: #121c24;
+  --color-ink: #e8eef2;
+  --color-muted: #8fa3b0;
+  --color-accent: #5ec4b0;
+  --color-accent-dim: #2a6b5f;
+  --color-line: #1e2d38;
+  --color-code: #0a1015;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  button,
+  [role="button"],
+  a[href] {
+    cursor: pointer;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  }
+}

@@ -1,0 +1,26 @@
+{{- if and .Values.monitoring.serviceMonitor.enabled (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1") }}
+{{- range $key, $app := .Values.apps }}
+{{- if and $app.enabled ($app.monitoring.serviceMonitor | default false) }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ $app.service.name }}
+  labels:
+    {{- include "app.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $key }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "app.selectorLabels" $ | nindent 6 }}
+      app.kubernetes.io/component: {{ $key }}
+  namespaceSelector:
+    matchNames:
+      - {{ $.Release.Namespace }}
+  endpoints:
+    - port: http
+      path: {{ $app.monitoring.path | default "/metrics" }}
+      interval: {{ $.Values.monitoring.serviceMonitor.interval | default "30s" }}
+{{- end }}
+{{- end }}
+{{- end }}

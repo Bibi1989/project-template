@@ -7,12 +7,15 @@ FastAPI + Next.js on GKE, with NGINX Ingress, Secret Manager, and GitHub Actions
 ## Layout
 
 ```text
-frontend/     Next.js app + Dockerfile + CI workflow
-backend/      FastAPI app + Dockerfile + CI workflow
+services/
+  frontend/   Next.js app + Dockerfile + CI workflow
+  backend/    FastAPI app + Dockerfile + CI workflow
 infra/
   README.md   ← start here for infrastructure
   terraform/  GCP resources (GKE-focused IaC)
   helm/app/   Dynamic chart (`apps.*` → Deployment/Service/HPA) — local / GKE / EKS / AKS
+  helm/monitoring/  Prometheus + Grafana → namespace `template-monitoring`
+  helm/argocd/      Argo CD GitOps → namespace `template-argocd`
 ```
 
 ## Quick start
@@ -58,17 +61,23 @@ helm upgrade --install template-app infra/helm/app \
   --set apps.backend.image.repository=$(terraform -chdir=infra/terraform output -raw artifact_registry_url)/backend
 ```
 
-Pushes to `main` under `frontend/` or `backend/` build, push to Artifact Registry, and Helm-upgrade that service.
+Pushes to `main` under `services/frontend/` or `services/backend/` build, push to Artifact Registry, and Helm-upgrade that service.
 
 ### 4. Local apps
 
+See each service README for install and startup:
+
+- Backend: [`services/backend/README.md`](services/backend/README.md)
+- Frontend: [`services/frontend/README.md`](services/frontend/README.md)
+- **Guided blog (in-app):** run the frontend, open [`/blog`](http://127.0.0.1:3000/blog) — step-by-step from API to Helm/Terraform
+
 ```bash
 # Backend
-cd backend && python -m venv .venv && source .venv/bin/activate
+cd services/backend && python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt && uvicorn app.main:app --reload --port 8000
 
-# Frontend
-cd frontend && npm install && npm run dev
+# Frontend (separate terminal)
+cd services/frontend && npm install && npm run dev
 ```
 
 ## Traffic

@@ -1,0 +1,42 @@
+# Example Argo CD Application for the template-app Helm chart.
+#
+# 1. Push this repo to GitHub/GitLab (or set spec.source.repoURL to your remote).
+# 2. kubectl apply -f application-template-app.yaml
+# 3. Sync from the Argo CD UI or: argocd app sync template-app
+#
+# Replace REPLACE_WITH_YOUR_GIT_REPO with e.g.
+#   https://github.com/YOUR_ORG/YOUR_REPO.git
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: template-app
+  namespace: template-argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Bibi1989/project-template
+    targetRevision: HEAD
+    path: infra/helm/app
+    helm:
+      valueFiles:
+        - values.yaml
+      # Optional overrides (prefer Git for durable config):
+      # parameters:
+      #   - name: apps.backend.enabled
+      #     value: "true"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: template
+  syncPolicy:
+    # Local lab: sync manually from the UI.
+    # For auto-sync, uncomment:
+    # automated:
+    #   prune: true
+    #   selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+  # Ignore noisy fields if needed:
+  # ignoreDifferences: []

@@ -1,0 +1,45 @@
+# =============================================================================
+# Argo CD — GitOps for the template-app Helm chart
+#
+# Install into namespace template-argocd (see README.md):
+#   helm upgrade --install template-argocd argo/argo-cd \
+#     -n template-argocd --create-namespace -f values.yaml --wait
+# =============================================================================
+
+fullnameOverride: template-argocd
+
+# Single replica is enough for local / kind
+controller:
+  replicas: 1
+
+server:
+  replicas: 1
+  # Local: use port-forward (no Ingress). Enable Ingress on cloud if desired.
+  service:
+    type: ClusterIP
+  extraArgs:
+    - --insecure   # skip TLS for local port-forward UI (lab only)
+
+repoServer:
+  replicas: 1
+
+applicationSet:
+  replicas: 1
+
+redis-ha:
+  enabled: false
+
+# Dex / SSO — leave off for local bootstrap
+configs:
+  params:
+    server.insecure: true
+  cm:
+    # Allow Application CRs in template-argocd (and optionally others)
+    application.namespaces: "template-argocd"
+
+# Keep resource use low on kind
+dex:
+  enabled: false
+
+notifications:
+  enabled: false

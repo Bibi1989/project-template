@@ -5,6 +5,8 @@
 | `config.env` | **Single place** for `NAME_PREFIX` (default `template`) |
 | `terraform/` | **GCP only** — VPC, GKE, GAR, Secret Manager, ingress-nginx, WIF |
 | `helm/app/` | App chart — works on **local / GKE / EKS / AKS** via values files |
+| `helm/monitoring/` | Prometheus + Grafana (`kube-prometheus-stack`) → ns `template-monitoring` |
+| `helm/argocd/` | Argo CD GitOps → ns `template-argocd` |
 
 > Rename once: edit `NAME_PREFIX` in `config.env`, then set Terraform `name_prefix` and Helm `global.namePrefix` to the same value.
 
@@ -49,6 +51,28 @@ helm upgrade --install template-app ./helm/app \
   --set global.gcpServiceAccount=$(terraform -chdir=terraform output -raw workload_app_service_account) \
   --set apps.frontend.image.repository=$(terraform -chdir=terraform output -raw artifact_registry_url)/frontend \
   --set apps.backend.image.repository=$(terraform -chdir=terraform output -raw artifact_registry_url)/backend
+```
+
+## Monitoring (Prometheus + Grafana)
+
+Local / any cluster: **[`helm/monitoring/README.md`](helm/monitoring/README.md)** — installs into namespace `template-monitoring`.
+
+```bash
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm upgrade --install template-monitoring prometheus-community/kube-prometheus-stack \
+  -n template-monitoring --create-namespace \
+  -f helm/monitoring/values.yaml --wait
+```
+
+## Argo CD (GitOps)
+
+**[`helm/argocd/README.md`](helm/argocd/README.md)** — installs into namespace `template-argocd`.
+
+```bash
+helm repo add argo https://argoproj.github.io/argo-helm
+helm upgrade --install template-argocd argo/argo-cd \
+  -n template-argocd --create-namespace \
+  -f helm/argocd/values.yaml --wait
 ```
 
 ## Terraform file map

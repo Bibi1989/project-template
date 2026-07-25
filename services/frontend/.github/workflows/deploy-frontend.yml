@@ -1,6 +1,6 @@
 # =============================================================================
 # Deploy Frontend → Google Artifact Registry → Helm upgrade on GKE
-# Triggers on pushes to main that touch frontend/ (or this workflow).
+# Triggers on pushes to main that touch services/frontend/ (or this workflow).
 #
 # Required GitHub repository variables / secrets:
 #   vars.GCP_PROJECT_ID
@@ -19,9 +19,9 @@ on:
   push:
     branches: [main]
     paths:
-      - "frontend/**"
+      - "services/frontend/**"
       - ".github/workflows/deploy-frontend.yml"
-      - "frontend/.github/workflows/deploy-frontend.yml"
+      - "services/frontend/.github/workflows/deploy-frontend.yml"
   workflow_dispatch:
 
 concurrency:
@@ -35,7 +35,7 @@ permissions:
 env:
   SERVICE: frontend
   IMAGE_NAME: frontend
-  WORKING_DIR: frontend
+  WORKING_DIR: services/frontend
 
 jobs:
   build-and-deploy:

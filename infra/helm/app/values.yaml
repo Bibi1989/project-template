@@ -4,8 +4,8 @@
 # Apps are defined under `apps.<name>`. Each enabled entry gets a Deployment,
 # Service, and optional HPA / PDB / PodMonitoring from the shared templates.
 #
-#   docker build -t template-frontend:local ../../frontend
-#   docker build -t template-backend:local  ../../backend
+#   docker build -t template-frontend:local ../../services/frontend
+#   docker build -t template-backend:local  ../../services/backend
 #   kind load docker-image template-frontend:local -n template
 #
 # Install:
@@ -97,10 +97,11 @@ apps:
       scrape: true
       path: /metrics
       podMonitoring: false
+      serviceMonitor: false
 
   backend:
-    enabled: false
-    name: deployment-backend
+    enabled: true
+    name: deployment-fastapi
     replicaCount: 1
     image:
       repository: template-backend
@@ -108,9 +109,10 @@ apps:
       pullPolicy: Never
     service:
       name: service-backend
-      type: ClusterIP
+      type: NodePort
       port: 8000
       targetPort: 8000
+      nodePort: 30001
     resources:
       requests:
         cpu: 100m
@@ -135,11 +137,15 @@ apps:
     emptyDirTmp: true
     env:
       - name: APP_NAME
-        value: template-api
-      - name: ENVIRONMENT
-        value: local
+        value: template-fastapi
       - name: PORT
         value: "8000"
+      - name: DATABASE_URL
+        value: postgresql://postgres:postgres@host.docker.internal:5420/postgres
+      - name: API_SECRET_KEY
+        value: local-dev-change-me
+      - name: CORS_ORIGINS
+        value: "*"
     autoscaling:
       enabled: false
       minReplicas: 1
@@ -153,6 +159,7 @@ apps:
       scrape: true
       path: /metrics
       podMonitoring: false
+      serviceMonitor: false
 
 # -----------------------------------------------------------------------------
 # Secrets — choose provider:
@@ -184,7 +191,7 @@ configMap:
   name: "" # defaults to {namePrefix}-app-config
   envFrom: true
   data:
-    APP_NAME: template-api
+    APP_NAME: template-fastapi
     LOG_FORMAT: json
 
 serviceAccount:
@@ -216,9 +223,13 @@ ingress:
 monitoring:
   # Global switch for GMP PodMonitoring CRDs (GKE). Per-app: apps.*.monitoring.podMonitoring
   podMonitoring:
-    enabled: false
+    enabled: true
     interval: 30s
   scrapeAnnotations: true
+  # Prometheus Operator ServiceMonitor (needs kube-prometheus-stack in template-monitoring)
+  serviceMonitor:
+    enabled: true
+    interval: 30s
 
 logging:
   level: debug

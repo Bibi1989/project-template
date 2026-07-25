@@ -1,6 +1,6 @@
 # =============================================================================
-# Deploy Backend → Google Artifact Registry → Helm upgrade on GKE
-# Triggers on pushes to main that touch backend/ (or this workflow).
+# Deploy Frontend → Google Artifact Registry → Helm upgrade on GKE
+# Triggers on pushes to main that touch services/frontend/ (or this workflow).
 #
 # Required GitHub repository variables / secrets:
 #   vars.GCP_PROJECT_ID
@@ -13,19 +13,19 @@
 #   vars.WIF_PROVIDER               (//iam.googleapis.com/projects/.../providers/...)
 #   vars.WIF_SERVICE_ACCOUNT        (github-actions@PROJECT.iam.gserviceaccount.com)
 # =============================================================================
-name: Deploy Backend
+name: Deploy Frontend
 
 on:
   push:
     branches: [main]
     paths:
-      - "backend/**"
-      - ".github/workflows/deploy-backend.yml"
-      - "backend/.github/workflows/deploy-backend.yml"
+      - "services/frontend/**"
+      - ".github/workflows/deploy-frontend.yml"
+      - "services/frontend/.github/workflows/deploy-frontend.yml"
   workflow_dispatch:
 
 concurrency:
-  group: deploy-backend-${{ github.ref }}
+  group: deploy-frontend-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
@@ -33,9 +33,9 @@ permissions:
   id-token: write
 
 env:
-  SERVICE: backend
-  IMAGE_NAME: backend
-  WORKING_DIR: backend
+  SERVICE: frontend
+  IMAGE_NAME: frontend
+  WORKING_DIR: services/frontend
 
 jobs:
   build-and-deploy:
@@ -96,6 +96,7 @@ jobs:
         working-directory: ${{ env.WORKING_DIR }}
         run: |
           docker build \
+            --build-arg NEXT_PUBLIC_API_BASE_URL=/api \
             --tag "${{ steps.meta.outputs.image_ref }}" \
             --tag "${{ steps.meta.outputs.image }}:latest" \
             --label "org.opencontainers.image.revision=${{ github.sha }}" \
@@ -107,7 +108,7 @@ jobs:
           docker push "${{ steps.meta.outputs.image_ref }}"
           docker push "${{ steps.meta.outputs.image }}:latest"
 
-      - name: Helm upgrade (backend image only)
+      - name: Helm upgrade (frontend image only)
         run: |
           helm upgrade --install "${{ vars.HELM_RELEASE_NAME }}" ./infra/helm/app \
             --namespace "${{ vars.HELM_NAMESPACE }}" \
@@ -115,9 +116,9 @@ jobs:
             --atomic \
             --wait \
             --timeout 10m \
-            --set "apps.backend.image.repository=${{ steps.meta.outputs.image }}" \
-            --set "apps.backend.image.tag=${{ steps.meta.outputs.tag }}" \
-            --set "apps.backend.image.pullPolicy=IfNotPresent" \
+            --set "apps.frontend.image.repository=${{ steps.meta.outputs.image }}" \
+            --set "apps.frontend.image.tag=${{ steps.meta.outputs.tag }}" \
+            --set "apps.frontend.image.pullPolicy=IfNotPresent" \
             --set "global.projectId=${{ vars.GCP_PROJECT_ID }}" \
             --set "global.region=${{ vars.GCP_REGION }}" \
             --reuse-values
@@ -125,7 +126,7 @@ jobs:
       - name: Summary
         run: |
           {
-            echo "## Backend deploy"
+            echo "## Frontend deploy"
             echo "- Image: \`${{ steps.meta.outputs.image_ref }}\`"
             echo "- Release: \`${{ vars.HELM_RELEASE_NAME }}\`"
             echo "- Namespace: \`${{ vars.HELM_NAMESPACE }}\`"
