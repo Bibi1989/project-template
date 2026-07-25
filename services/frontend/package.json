@@ -2,6 +2,10 @@
   "name": "template-frontend",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": ">=22.13.0 <23"
+  },
+  "packageManager": "npm@10.9.8",
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",
@@ -19,6 +23,8 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@emnapi/core": "^1.11.1",
+    "@emnapi/runtime": "^1.11.1",
     "@eslint/eslintrc": "^3.3.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^22.10.5",

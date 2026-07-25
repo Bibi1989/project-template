@@ -5,8 +5,8 @@ backend via `BACKEND_URL` (server) and `/api` (browser / ingress).
 
 ## Prerequisites
 
-- Node.js 20+ (22 recommended)
-- npm
+- Node.js **22** (see `.nvmrc`; avoid Node 23 for lockfile/CI — npm 11 can omit `@emnapi/*`)
+- npm 10 (ships with Node 22)
 - Optional: Postgres for the database health check (`DATABASE_URL`)
 - Backend running on `:8000` (see [`../backend/README.md`](../backend/README.md))
 
@@ -15,10 +15,17 @@ backend via `BACKEND_URL` (server) and `/api` (browser / ingress).
 ```bash
 cd services/frontend
 
+# recommended: match CI
+nvm use   # reads .nvmrc → 22.x
+
 npm install
 
 cp .env.example .env               # adjust ports / DB as needed
 ```
+
+When changing dependencies, run `npm install` under **Node 22** and commit
+`package.json` + `package-lock.json` together. Do not regenerate the lockfile
+on Node 23 if you want Linux CI `npm ci` to stay green.
 
 ## Start (local)
 

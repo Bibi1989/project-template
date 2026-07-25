@@ -30,7 +30,10 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          # Match services/frontend/.nvmrc and packageManager (npm 10).
+          # Regenerating the lockfile on Node 23/npm 11 (macOS) can omit
+          # @emnapi/* entries that Linux CI expects — always use Node 22.
+          node-version-file: services/frontend/.nvmrc
           cache: npm
           cache-dependency-path: services/frontend/package-lock.json
 
