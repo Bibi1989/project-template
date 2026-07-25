@@ -7,12 +7,21 @@ Post-install notes
 ============================================================
 
 Ingress class : {{ .Values.ingress.className }}
-Frontend svc  : {{ .Values.frontend.service.name }}:{{ .Values.frontend.service.port }}
-Backend svc   : {{ .Values.backend.service.name }}:{{ .Values.backend.service.port }}
 
-Routing:
-  /          → {{ .Values.frontend.service.name }}
-  /api/(.*)  → {{ .Values.backend.service.name }}  (rewrite /$1)
+Workloads:
+{{- range $key, $app := .Values.apps }}
+{{- if $app.enabled }}
+  {{ $key }} → {{ $app.name }} / {{ $app.service.name }}:{{ $app.service.port }}
+{{- end }}
+{{- end }}
+
+Ingress paths:
+{{- range .Values.ingress.paths }}
+{{- $target := index $.Values.apps .app }}
+{{- if and $target $target.enabled }}
+  {{ .path }} → {{ $target.service.name }}
+{{- end }}
+{{- end }}
 
 Secrets:
   enabled={{ .Values.secrets.enabled }}  provider={{ .Values.secrets.provider }}

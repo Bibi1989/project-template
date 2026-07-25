@@ -12,3 +12,4 @@ keywords:
   - secret-manager
 maintainers:
   - name: Template Platform
+icon: https://raw.githubusercontent.com/kubernetes/kubernetes/master/logo/logo.png

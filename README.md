@@ -12,7 +12,7 @@ backend/      FastAPI app + Dockerfile + CI workflow
 infra/
   README.md   ← start here for infrastructure
   terraform/  GCP resources (GKE-focused IaC)
-  helm/app/   App chart — local / GKE / EKS / AKS via values files
+  helm/app/   Dynamic chart (`apps.*` → Deployment/Service/HPA) — local / GKE / EKS / AKS
 ```
 
 ## Quick start
@@ -54,8 +54,8 @@ helm upgrade --install template-app infra/helm/app \
   --namespace template --create-namespace \
   --set global.projectId=$(terraform -chdir=infra/terraform output -raw project_id) \
   --set global.gcpServiceAccount=$(terraform -chdir=infra/terraform output -raw workload_app_service_account) \
-  --set frontend.image.repository=$(terraform -chdir=infra/terraform output -raw artifact_registry_url)/frontend \
-  --set backend.image.repository=$(terraform -chdir=infra/terraform output -raw artifact_registry_url)/backend
+  --set apps.frontend.image.repository=$(terraform -chdir=infra/terraform output -raw artifact_registry_url)/frontend \
+  --set apps.backend.image.repository=$(terraform -chdir=infra/terraform output -raw artifact_registry_url)/backend
 ```
 
 Pushes to `main` under `frontend/` or `backend/` build, push to Artifact Registry, and Helm-upgrade that service.

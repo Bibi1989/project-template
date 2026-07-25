@@ -1,26 +1,4 @@
 {{- if .Values.ingress.enabled }}
-{{- $paths := list
-  (dict
-    "path" .Values.ingress.paths.api.path
-    "pathType" .Values.ingress.paths.api.pathType
-    "backend" (dict
-      "service" (dict
-        "name" .Values.ingress.paths.api.serviceName
-        "port" (dict "number" (int .Values.ingress.paths.api.servicePort))
-      )
-    )
-  )
-  (dict
-    "path" .Values.ingress.paths.frontend.path
-    "pathType" .Values.ingress.paths.frontend.pathType
-    "backend" (dict
-      "service" (dict
-        "name" .Values.ingress.paths.frontend.serviceName
-        "port" (dict "number" (int .Values.ingress.paths.frontend.servicePort))
-      )
-    )
-  )
--}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -49,26 +27,32 @@ spec:
     - host: {{ .Values.ingress.host | quote }}
       http:
         paths:
-{{- range $paths }}
+{{- range .Values.ingress.paths }}
+{{- $target := index $.Values.apps .app }}
+{{- if and $target $target.enabled }}
           - path: {{ .path | quote }}
             pathType: {{ .pathType }}
             backend:
               service:
-                name: {{ .backend.service.name }}
+                name: {{ $target.service.name }}
                 port:
-                  number: {{ .backend.service.port.number }}
+                  number: {{ $target.service.port }}
+{{- end }}
 {{- end }}
 {{- else }}
     - http:
         paths:
-{{- range $paths }}
+{{- range .Values.ingress.paths }}
+{{- $target := index $.Values.apps .app }}
+{{- if and $target $target.enabled }}
           - path: {{ .path | quote }}
             pathType: {{ .pathType }}
             backend:
               service:
-                name: {{ .backend.service.name }}
+                name: {{ $target.service.name }}
                 port:
-                  number: {{ .backend.service.port.number }}
+                  number: {{ $target.service.port }}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

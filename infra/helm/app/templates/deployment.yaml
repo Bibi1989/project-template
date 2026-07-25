@@ -1,0 +1,139 @@
+{{- range $key, $app := .Values.apps }}
+{{- if $app.enabled }}
+{{- $autoscalingOn := and $.Values.autoscaling.enabled ($app.autoscaling.enabled | default false) }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $app.name }}
+  labels:
+    {{- include "app.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $key }}
+spec:
+  {{- if not $autoscalingOn }}
+  replicas: {{ $app.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "app.selectorLabels" $ | nindent 6 }}
+      app.kubernetes.io/component: {{ $key }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        {{- include "app.labels" $ | nindent 8 }}
+        app.kubernetes.io/component: {{ $key }}
+      annotations:
+        {{- if eq (include "app.secretsKubernetes" $) "true" }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") $ | sha256sum }}
+        {{- end }}
+        {{- if eq (include "app.secretsCsi" $) "true" }}
+        checksum/secret-provider: {{ include (print $.Template.BasePath "/secret-provider-class.yaml") $ | sha256sum }}
+        {{- end }}
+        {{- if $.Values.configMap.enabled }}
+        checksum/configmap: {{ include (print $.Template.BasePath "/configmap.yaml") $ | sha256sum }}
+        {{- end }}
+        {{- if and $.Values.monitoring.scrapeAnnotations ($app.monitoring.scrape | default false) }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ $app.service.targetPort | quote }}
+        prometheus.io/path: {{ $app.monitoring.path | default "/metrics" | quote }}
+        {{- end }}
+        {{- if $.Values.rolloutDate }}
+        rolloutDate: {{ $.Values.rolloutDate | quote }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "app.serviceAccountName" $ }}
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: {{ $key }}
+          image: "{{ $app.image.repository }}:{{ $app.image.tag }}"
+          imagePullPolicy: {{ $app.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ $app.service.targetPort }}
+              protocol: TCP
+          env:
+            {{- range $app.env }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+            - name: LOG_LEVEL
+              value: {{ $.Values.logging.level | quote }}
+            {{- if $.Values.logging.configMap.enabled }}
+            - name: STRUCTURED_LOGS
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "app.fullname" $ }}-logging
+                  key: STRUCTURED_LOGS
+            {{- end }}
+          {{- if or $.Values.secrets.enabled (and $.Values.configMap.enabled $.Values.configMap.envFrom) }}
+          envFrom:
+            {{- if $.Values.secrets.enabled }}
+            - secretRef:
+                name: {{ include "app.syncSecretName" $ }}
+            {{- end }}
+            {{- if and $.Values.configMap.enabled $.Values.configMap.envFrom }}
+            - configMapRef:
+                name: {{ include "app.configMapName" $ }}
+            {{- end }}
+          {{- end }}
+          {{- if or ($app.emptyDirTmp | default false) (eq (include "app.secretsCsi" $) "true") }}
+          volumeMounts:
+            {{- if $app.emptyDirTmp | default false }}
+            - name: tmp
+              mountPath: /tmp
+            {{- end }}
+            {{- if eq (include "app.secretsCsi" $) "true" }}
+            - name: csi-secrets
+              mountPath: {{ $.Values.secrets.mountPath }}
+              readOnly: true
+            {{- end }}
+          {{- end }}
+          resources:
+            {{- toYaml $app.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: {{ $app.readOnlyRootFilesystem | default false }}
+            capabilities:
+              drop: ["ALL"]
+          livenessProbe:
+            httpGet:
+              path: {{ $app.probes.liveness.path }}
+              port: http
+            initialDelaySeconds: {{ $app.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ $app.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ $app.probes.liveness.timeoutSeconds }}
+            failureThreshold: {{ $app.probes.liveness.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: {{ $app.probes.readiness.path }}
+              port: http
+            initialDelaySeconds: {{ $app.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ $app.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ $app.probes.readiness.timeoutSeconds }}
+            failureThreshold: {{ $app.probes.readiness.failureThreshold }}
+      {{- if or ($app.emptyDirTmp | default false) (eq (include "app.secretsCsi" $) "true") }}
+      volumes:
+        {{- if $app.emptyDirTmp | default false }}
+        - name: tmp
+          emptyDir: {}
+        {{- end }}
+        {{- if eq (include "app.secretsCsi" $) "true" }}
+        - name: csi-secrets
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: {{ include "app.secretProviderClassName" $ | quote }}
+        {{- end }}
+      {{- end }}
+{{- end }}
+{{- end }}

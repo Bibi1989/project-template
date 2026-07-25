@@ -115,9 +115,9 @@ jobs:
             --atomic \
             --wait \
             --timeout 10m \
-            --set "backend.image.repository=${{ steps.meta.outputs.image }}" \
-            --set "backend.image.tag=${{ steps.meta.outputs.tag }}" \
-            --set "backend.image.pullPolicy=IfNotPresent" \
+            --set "apps.backend.image.repository=${{ steps.meta.outputs.image }}" \
+            --set "apps.backend.image.tag=${{ steps.meta.outputs.tag }}" \
+            --set "apps.backend.image.pullPolicy=IfNotPresent" \
             --set "global.projectId=${{ vars.GCP_PROJECT_ID }}" \
             --set "global.region=${{ vars.GCP_REGION }}" \
             --reuse-values

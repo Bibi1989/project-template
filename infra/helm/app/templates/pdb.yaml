@@ -1,33 +1,20 @@
 {{- if .Values.podDisruptionBudget.enabled }}
-{{- if .Values.frontend.enabled }}
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata:
-  name: pdb-frontend
-  labels:
-    {{- include "app.labels" . | nindent 4 }}
-    app.kubernetes.io/component: frontend
-spec:
-  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
-  selector:
-    matchLabels:
-      {{- include "app.selectorLabels" . | nindent 6 }}
-      app.kubernetes.io/component: frontend
-{{- end }}
-{{- if .Values.backend.enabled }}
+{{- range $key, $app := .Values.apps }}
+{{- if and $app.enabled ($app.podDisruptionBudget.enabled | default false) }}
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: pdb-backend
+  name: pdb-{{ $key }}
   labels:
-    {{- include "app.labels" . | nindent 4 }}
-    app.kubernetes.io/component: backend
+    {{- include "app.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $key }}
 spec:
-  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  minAvailable: {{ $app.podDisruptionBudget.minAvailable | default 1 }}
   selector:
     matchLabels:
-      {{- include "app.selectorLabels" . | nindent 6 }}
-      app.kubernetes.io/component: backend
+      {{- include "app.selectorLabels" $ | nindent 6 }}
+      app.kubernetes.io/component: {{ $key }}
+{{- end }}
 {{- end }}
 {{- end }}

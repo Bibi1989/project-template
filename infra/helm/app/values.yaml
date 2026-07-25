@@ -1,17 +1,18 @@
 # =============================================================================
 # LOCAL defaults — Docker Desktop / kind / minikube
 #
-# Images are plain local tags (no GCP registry). Build + load into your cluster:
+# Apps are defined under `apps.<name>`. Each enabled entry gets a Deployment,
+# Service, and optional HPA / PDB / PodMonitoring from the shared templates.
+#
 #   docker build -t template-frontend:local ../../frontend
 #   docker build -t template-backend:local  ../../backend
-#   # kind:   kind load docker-image template-frontend:local
-#   #         kind load docker-image template-backend:local
+#   kind load docker-image template-frontend:local -n template
 #
 # Install:
 #   helm upgrade --install template-app . -n template --create-namespace
 #
 # Naming: change global.namePrefix (sync with infra/config.env NAME_PREFIX).
-# Production / GKE: also pass -f values-production.yaml (see that file).
+# Production / GKE: also pass -f values-production.yaml.
 # =============================================================================
 
 global:
@@ -28,103 +29,130 @@ fullnameOverride: ""
 rolloutDate: ""
 
 # -----------------------------------------------------------------------------
-# Frontend (Next.js) — ClusterIP :3000
+# Workloads — add/remove keys freely; templates range over this map
 # -----------------------------------------------------------------------------
-frontend:
-  enabled: true
-  name: deployment-frontend
-  replicaCount: 1
-  image:
-    # Local image name — NOT a GCP Artifact Registry path
-    repository: template-frontend
-    tag: local
-    pullPolicy: Never # cluster must already have the image (Desktop / kind load)
-  service:
-    name: service-frontend
-    type: NodePort
-    port: 3000
-    targetPort: 3000
-  resources:
-    requests:
-      cpu: 100m
-      memory: 128Mi
-    limits:
-      cpu: 500m
-      memory: 512Mi
-  probes:
-    liveness:
-      path: /
-      initialDelaySeconds: 20
-      periodSeconds: 15
-      timeoutSeconds: 5
-      failureThreshold: 3
-    readiness:
-      path: /
-      initialDelaySeconds: 10
-      periodSeconds: 10
-      timeoutSeconds: 5
-      failureThreshold: 3
-  env:
-    - name: NODE_ENV
-      value: development
-    # host.docker.internal = Mac/Windows Docker Desktop / kind host (not localhost)
-    - name: DATABASE_URL
-      value: postgresql://postgres:postgres@host.docker.internal:5420/postgres
-    - name: PORT
-      value: "3000"
-    - name: NEXT_PUBLIC_API_BASE_URL
-      value: /api
-    - name: NEXT_PUBLIC_APP_URL
-      value: http://127.0.0.1:3000
-    # Absolute URL for RSC fetch → FastAPI (ClusterIP service name in-cluster)
-    - name: BACKEND_URL
-      value: http://service-backend:8000
-    - name: ENVIRONMENT
-      value: local
+apps:
+  frontend:
+    enabled: true
+    name: deployment-frontend
+    replicaCount: 1
+    image:
+      repository: template-frontend
+      tag: local
+      pullPolicy: Never
+    service:
+      name: service-frontend
+      type: ClusterIP
+      port: 3000
+      targetPort: 3000
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    probes:
+      liveness:
+        path: /
+        initialDelaySeconds: 20
+        periodSeconds: 15
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        path: /
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+    # Container security / volumes
+    readOnlyRootFilesystem: false
+    emptyDirTmp: false
+    env:
+      - name: NODE_ENV
+        value: development
+      # host.docker.internal = Mac/Windows Docker Desktop / kind host (not localhost)
+      - name: DATABASE_URL
+        value: postgresql://postgres:postgres@host.docker.internal:5420/postgres
+      - name: PORT
+        value: "3000"
+      - name: NEXT_PUBLIC_API_BASE_URL
+        value: /api
+      - name: NEXT_PUBLIC_APP_URL
+        value: http://127.0.0.1:3000
+      - name: BACKEND_URL
+        value: http://service-backend:8000
+      - name: ENVIRONMENT
+        value: local
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 3
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage: 80
+    podDisruptionBudget:
+      enabled: false
+      minAvailable: 1
+    monitoring:
+      scrape: true
+      path: /metrics
+      podMonitoring: false
 
-# -----------------------------------------------------------------------------
-# Backend (FastAPI) — ClusterIP :8000
-# -----------------------------------------------------------------------------
-backend:
-  enabled: false
-  name: deployment-backend
-  replicaCount: 1
-  image:
-    repository: template-backend
-    tag: local
-    pullPolicy: Never
-  service:
-    name: service-backend
-    type: ClusterIP
-    port: 8000
-    targetPort: 8000
-  resources:
-    requests:
-      cpu: 100m
-      memory: 128Mi
-    limits:
-      cpu: 750m
-      memory: 768Mi
-  probes:
-    liveness:
-      path: /health
-      initialDelaySeconds: 15
-      periodSeconds: 15
-      timeoutSeconds: 5
-      failureThreshold: 3
-    readiness:
-      path: /health
-      initialDelaySeconds: 8
-      periodSeconds: 8
-      timeoutSeconds: 5
-      failureThreshold: 3
-  env:
-    - name: APP_NAME
-      value: template-api
-    - name: ENVIRONMENT
-      value: local
-    - name: PORT
-      value: "8000"
+  backend:
+    enabled: false
+    name: deployment-backend
+    replicaCount: 1
+    image:
+      repository: template-backend
+      tag: local
+      pullPolicy: Never
+    service:
+      name: service-backend
+      type: ClusterIP
+      port: 8000
+      targetPort: 8000
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 750m
+        memory: 768Mi
+    probes:
+      liveness:
+        path: /health
+        initialDelaySeconds: 15
+        periodSeconds: 15
+        timeoutSeconds: 5
+        failureThreshold: 3
+      readiness:
+        path: /health
+        initialDelaySeconds: 8
+        periodSeconds: 8
+        timeoutSeconds: 5
+        failureThreshold: 3
+    readOnlyRootFilesystem: true
+    emptyDirTmp: true
+    env:
+      - name: APP_NAME
+        value: template-api
+      - name: ENVIRONMENT
+        value: local
+      - name: PORT
+        value: "8000"
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 3
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage: 80
+    podDisruptionBudget:
+      enabled: false
+      minAvailable: 1
+    monitoring:
+      scrape: true
+      path: /metrics
+      podMonitoring: false
 
 # -----------------------------------------------------------------------------
 # Secrets — choose provider:
@@ -134,13 +162,10 @@ backend:
 secrets:
   enabled: true
   provider: kubernetes # kubernetes | csi
-  # Native Secret stringData (used when provider=kubernetes)
   stringData:
-    # Same host.docker.internal tip as frontend.env (pods ≠ host localhost)
     DATABASE_URL: "postgresql://postgres:postgres@host.docker.internal:5420/postgres"
     API_SECRET_KEY: "local-dev-change-me"
     CORS_ORIGINS: "*"
-  # CSI / Secret Manager (used when provider=csi)
   providerClassName: ""
   mountPath: /var/secrets
   syncSecretName: ""
@@ -157,7 +182,7 @@ secrets:
 configMap:
   enabled: true
   name: "" # defaults to {namePrefix}-app-config
-  envFrom: true # inject all keys as environment variables
+  envFrom: true
   data:
     APP_NAME: template-api
     LOG_FORMAT: json
@@ -179,28 +204,21 @@ ingress:
     nginx.ingress.kubernetes.io/proxy-body-size: "32m"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+  # Each path targets an apps.<key> Service (resolved at render time)
   paths:
-    api:
-      path: /api(?:/|$)(.*)
+    - path: /api(?:/|$)(.*)
       pathType: ImplementationSpecific
-      serviceName: service-backend
-      servicePort: 8000
-    frontend:
-      path: /?(.*)
+      app: backend
+    - path: /?(.*)
       pathType: ImplementationSpecific
-      serviceName: service-frontend
-      servicePort: 3000
+      app: frontend
 
 monitoring:
-  scrapeAnnotations: true
+  # Global switch for GMP PodMonitoring CRDs (GKE). Per-app: apps.*.monitoring.podMonitoring
   podMonitoring:
-    enabled: false # GMP CRDs usually absent on local clusters
+    enabled: false
     interval: 30s
-    backend:
-      path: /metrics
-    frontend:
-      enabled: false
-      path: /metrics
+  scrapeAnnotations: true
 
 logging:
   level: debug
@@ -208,21 +226,10 @@ logging:
   configMap:
     enabled: true
 
+# Global HPA gate — per-app: apps.*.autoscaling.enabled
 autoscaling:
   enabled: false
-  frontend:
-    enabled: false
-    minReplicas: 1
-    maxReplicas: 3
-    targetCPUUtilizationPercentage: 70
-    targetMemoryUtilizationPercentage: 80
-  backend:
-    enabled: false
-    minReplicas: 1
-    maxReplicas: 3
-    targetCPUUtilizationPercentage: 70
-    targetMemoryUtilizationPercentage: 80
 
+# Global PDB gate — per-app: apps.*.podDisruptionBudget.enabled
 podDisruptionBudget:
   enabled: false
-  minAvailable: 1

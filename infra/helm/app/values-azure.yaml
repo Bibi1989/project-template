@@ -3,16 +3,10 @@
 # Usage:
 #   helm upgrade --install template-app . -n template --create-namespace \
 #     -f values.yaml -f values-azure.yaml \
-#     --set frontend.image.repository=$ACR/frontend \
-#     --set frontend.image.tag=$TAG \
-#     --set backend.image.repository=$ACR/backend \
-#     --set backend.image.tag=$TAG
-#
-# Prerequisites (outside this chart):
-#   - AKS cluster + ingress-nginx (or Application Gateway Ingress Controller)
-#   - Azure Container Registry (ACR) + AKS pull rights (AcrPull)
-#   - Optional: Secrets Store CSI (Azure Key Vault provider) later — this stub
-#     uses portable kubernetes Secrets.
+#     --set apps.frontend.image.repository=$ACR/frontend \
+#     --set apps.frontend.image.tag=$TAG \
+#     --set apps.backend.image.repository=$ACR/backend \
+#     --set apps.backend.image.tag=$TAG
 
 global:
   environment: production
@@ -20,38 +14,53 @@ global:
   projectId: ""
   gcpServiceAccount: ""
 
-frontend:
-  replicaCount: 2
-  image:
-    repository: myregistry.azurecr.io/template-frontend
-    tag: latest
-    pullPolicy: IfNotPresent
-  env:
-    - name: NODE_ENV
-      value: production
-    - name: PORT
-      value: "3000"
-    - name: NEXT_PUBLIC_API_BASE_URL
-      value: /api
-    - name: BACKEND_URL
-      value: http://service-backend:8000
-    - name: ENVIRONMENT
-      value: production
+apps:
+  frontend:
+    replicaCount: 2
+    image:
+      repository: myregistry.azurecr.io/template-frontend
+      tag: latest
+      pullPolicy: IfNotPresent
+    env:
+      - name: NODE_ENV
+        value: production
+      - name: PORT
+        value: "3000"
+      - name: NEXT_PUBLIC_API_BASE_URL
+        value: /api
+      - name: BACKEND_URL
+        value: http://service-backend:8000
+      - name: ENVIRONMENT
+        value: production
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 8
+    podDisruptionBudget:
+      enabled: true
+      minAvailable: 1
 
-backend:
-  enabled: true
-  replicaCount: 2
-  image:
-    repository: myregistry.azurecr.io/template-backend
-    tag: latest
-    pullPolicy: IfNotPresent
-  env:
-    - name: APP_NAME
-      value: template-api
-    - name: ENVIRONMENT
-      value: production
-    - name: PORT
-      value: "8000"
+  backend:
+    enabled: true
+    replicaCount: 2
+    image:
+      repository: myregistry.azurecr.io/template-backend
+      tag: latest
+      pullPolicy: IfNotPresent
+    env:
+      - name: APP_NAME
+        value: template-api
+      - name: ENVIRONMENT
+        value: production
+      - name: PORT
+        value: "8000"
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 10
+    podDisruptionBudget:
+      enabled: true
+      minAvailable: 1
 
 secrets:
   enabled: true
@@ -71,22 +80,13 @@ monitoring:
 
 autoscaling:
   enabled: true
-  frontend:
-    enabled: true
-    minReplicas: 2
-    maxReplicas: 8
-  backend:
-    enabled: true
-    minReplicas: 2
-    maxReplicas: 10
 
 podDisruptionBudget:
   enabled: true
-  minAvailable: 1
 
 serviceAccount:
   create: true
-  # For Azure Workload Identity, set annotations/labels per AKS docs:
+  # For Azure Workload Identity:
   # annotations:
   #   azure.workload.identity/client-id: "<app-client-id>"
   annotations: {}

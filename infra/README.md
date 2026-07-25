@@ -47,8 +47,8 @@ helm upgrade --install template-app ./helm/app \
   --namespace template --create-namespace \
   --set global.projectId=$(terraform -chdir=terraform output -raw project_id) \
   --set global.gcpServiceAccount=$(terraform -chdir=terraform output -raw workload_app_service_account) \
-  --set frontend.image.repository=$(terraform -chdir=terraform output -raw artifact_registry_url)/frontend \
-  --set backend.image.repository=$(terraform -chdir=terraform output -raw artifact_registry_url)/backend
+  --set apps.frontend.image.repository=$(terraform -chdir=terraform output -raw artifact_registry_url)/frontend \
+  --set apps.backend.image.repository=$(terraform -chdir=terraform output -raw artifact_registry_url)/backend
 ```
 
 ## Terraform file map
