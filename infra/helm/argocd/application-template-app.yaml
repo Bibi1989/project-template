@@ -40,3 +40,6 @@ spec:
       - CreateNamespace=true
   # Ignore noisy fields if needed:
   # ignoreDifferences: []
+  data: {
+    "resource.customizations.ingress": "hs = {}\nhs.status = \"Healthy\"\nhs.message = \"Ingress is healthy\"\nhs.conditions = []"
+  }
