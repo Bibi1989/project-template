@@ -20,9 +20,18 @@ python3 -m venv .venv                 # or: python3.12 -m venv .venv
 source .venv/bin/activate             # Windows: .venv\Scripts\activate
 
 pip install --upgrade pip
-pip install -r requirements.txt
+pip install -r requirements.txt -r requirements-dev.txt
 
 cp .env.example .env
+```
+
+## Test & lint
+
+```bash
+cd services/backend
+source .venv/bin/activate
+ruff check app tests
+pytest -q
 ```
 
 Recreate a broken venv:

@@ -1,0 +1,86 @@
+# Lint, unit test, and build for frontend + backend.
+# GitHub only runs workflows from the repo-root `.github/workflows/` directory
+# (not from services/*/.github/).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: Frontend (lint · test · build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: services/frontend/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+        env:
+          BACKEND_URL: http://127.0.0.1:8000
+          NEXT_PUBLIC_API_BASE_URL: /api
+          NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
+
+  backend:
+    name: Backend (lint · test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/backend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            services/backend/requirements.txt
+            services/backend/requirements-dev.txt
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Lint
+        run: ruff check app tests
+
+      - name: Unit tests
+        run: pytest -q
+        env:
+          APP_NAME: template-api
+          ENVIRONMENT: test
+          STRUCTURED_LOGS: "false"

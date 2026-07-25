@@ -7,7 +7,10 @@ export async function GET() {
     const result = await checkDatabase();
     const status = result.status === "OK" ? 200 : 500;
     return NextResponse.json(result, { status });
-  } catch (error) {
-    return NextResponse.json({ error: "Internal server error", timestamp: new Date().toISOString() }, { status: 500 });
+  } catch {
+    return NextResponse.json(
+      { error: "Internal server error", timestamp: new Date().toISOString() },
+      { status: 500 },
+    );
   }
 }

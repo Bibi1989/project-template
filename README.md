@@ -8,8 +8,10 @@ FastAPI + Next.js on GKE, with NGINX Ingress, Secret Manager, and GitHub Actions
 
 ```text
 services/
-  frontend/   Next.js app + Dockerfile + CI workflow
-  backend/    FastAPI app + Dockerfile + CI workflow
+  frontend/   Next.js app + Dockerfile
+  backend/    FastAPI app + Dockerfile
+.github/
+  workflows/  CI (lint/test/build) + optional GCP deploy — must live at repo root
 infra/
   README.md   ← start here for infrastructure
   terraform/  GCP resources (GKE-focused IaC)
@@ -17,6 +19,8 @@ infra/
   helm/monitoring/  Prometheus + Grafana → namespace `template-monitoring`
   helm/argocd/      Argo CD GitOps → namespace `template-argocd`
 ```
+
+> **Why workflows are at the root:** GitHub Actions only loads `.github/workflows/` from the repository root. Files under `services/*/.github/` are ignored.
 
 ## Quick start
 
@@ -32,7 +36,11 @@ terraform init && terraform apply
 
 Details and file map: [`infra/README.md`](infra/README.md)
 
-### 2. GitHub Actions variables
+### 2. GitHub Actions
+
+**CI** (`.github/workflows/ci.yml`) runs on every push/PR: frontend lint + unit tests + build, backend lint + unit tests.
+
+**GCP deploy** (`.github/workflows/deploy-*.yml`) is currently commented out. When re-enabled, set:
 
 | Variable | Terraform output |
 |----------|------------------|
@@ -61,7 +69,7 @@ helm upgrade --install template-app infra/helm/app \
   --set apps.backend.image.repository=$(terraform -chdir=infra/terraform output -raw artifact_registry_url)/backend
 ```
 
-Pushes to `main` under `services/frontend/` or `services/backend/` build, push to Artifact Registry, and Helm-upgrade that service.
+Pushes to `main` run CI. GCP image push / Helm upgrade is disabled until you uncomment those workflows.
 
 ### 4. Local apps
 

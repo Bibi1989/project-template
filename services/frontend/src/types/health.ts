@@ -1,5 +1,14 @@
 import { z } from "zod";
 
+/** FastAPI `/health` payload shape. */
+export const ApiHealthSchema = z.object({
+  status: z.string(),
+  environment: z.string(),
+  service: z.string(),
+});
+
+export type ApiHealth = z.infer<typeof ApiHealthSchema>;
+
 export const BackendHealthSchema = z.object({
   ok: z.boolean(),
   body: z.record(z.string(), z.unknown()).optional(),
