@@ -1,4 +1,6 @@
-# GitHub — Workload Identity Federation (keyless CI → GCP)
+variable "project_id" { type = string }
+variable "name" { type = string }
+variable "github_repository" { type = string }
 
 resource "google_iam_workload_identity_pool" "github" {
   project                   = var.project_id
@@ -25,7 +27,7 @@ resource "google_iam_workload_identity_pool_provider" "github" {
 }
 
 resource "google_service_account" "github_actions" {
-  account_id   = "${local.name}-ci"
+  account_id   = "${var.name}-ci"
   display_name = "GitHub Actions deployer"
   project      = var.project_id
 }
@@ -46,4 +48,12 @@ resource "google_project_iam_member" "github_actions" {
   project = var.project_id
   role    = each.value
   member  = "serviceAccount:${google_service_account.github_actions.email}"
+}
+
+output "wif_provider" {
+  value = "//iam.googleapis.com/${google_iam_workload_identity_pool_provider.github.name}"
+}
+
+output "wif_service_account" {
+  value = google_service_account.github_actions.email
 }

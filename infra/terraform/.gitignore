@@ -1,6 +1,5 @@
 # Local / CI Terraform artifacts
 .terraform/
-.terraform.lock.hcl
 *.tfstate
 *.tfstate.*
 crash.log
@@ -14,3 +13,4 @@ terraform.rc
 terraform.tfvars
 *.auto.tfvars
 !terraform.tfvars.example
+# Keep .terraform.lock.hcl in git (provider versions)

@@ -1,0 +1,9 @@
+config:
+  # Override via: pulumi config set aws:region us-west-2
+  aws:region: us-east-1
+  template-aws:namePrefix: template
+  template-aws:kubernetesVersion: "1.31"
+  template-aws:desiredCapacity: "2"
+  template-aws:minSize: "1"
+  template-aws:maxSize: "4"
+  template-aws:instanceType: t3.medium

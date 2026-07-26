@@ -36,16 +36,22 @@ kubectl -n template-argocd get secret argocd-initial-admin-secret \
 
 ## Open the UI
 
+Browsers often force **HTTPS** on `localhost`. Keep Argo TLS on (no `--insecure`)
+and port-forward the HTTPS service port:
+
 ```bash
-kubectl -n template-argocd port-forward svc/template-argocd-server 8081:80
-# http://localhost:8081  (admin / password from secret above)
+kubectl -n template-argocd port-forward svc/template-argocd-server 8081:443
+# https://127.0.0.1:8081  (accept the self-signed cert warning)
+# user: admin  /  password from secret above
 ```
+
+Do **not** open `http://` after this change — use `https://`.
 
 Optional CLI:
 
 ```bash
 brew install argocd   # or see Argo CD install docs
-argocd login localhost:8081 --username admin --password '<password>' --insecure
+argocd login 127.0.0.1:8081 --username admin --password '<password>' --insecure
 ```
 
 ---

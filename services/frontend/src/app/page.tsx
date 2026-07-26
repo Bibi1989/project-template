@@ -19,9 +19,28 @@ export default function HomePage() {
         </Link>
       </div>
       <p className="mb-8 text-muted">
-        My Template for a new project — status widgets below. Full walkthrough:{" "}
+        Fullstack &amp; DevOps starter — status widgets below. Guides:{" "}
         <Link href="/blog" className="text-accent hover:underline">
-          From zero to running
+          setup blog
+        </Link>
+        {" · "}
+        <Link href="/blog/monitoring" className="text-accent hover:underline">
+          monitoring
+        </Link>
+        {" · "}
+        <Link href="/blog/terraform" className="text-accent hover:underline">
+          Terraform
+        </Link>
+        {" · "}
+        <Link href="/blog/pulumi" className="text-accent hover:underline">
+          Pulumi
+        </Link>
+        {" · "}
+        <Link
+          href="/blog/github-actions"
+          className="text-accent hover:underline"
+        >
+          GitHub Actions
         </Link>
         .
       </p>

@@ -1,17 +1,16 @@
-# Ops — monitoring, logging, backup (kept small on purpose)
-#
-# Monitoring  → one email alert when pods restart too often
-# Logging     → GKE already sends logs to Cloud Logging (see gke.tf);
-#               this sink also archives them to a GCS bucket
-# Backup      → Backup for GKE runs daily and keeps 14 days
-
-# --- Monitoring --------------------------------------------------------------
+variable "project_id" { type = string }
+variable "region" { type = string }
+variable "name" { type = string }
+variable "labels" { type = map(string) }
+variable "alert_email" { type = string }
+variable "cluster_name" { type = string }
+variable "cluster_id" { type = string }
 
 resource "google_monitoring_notification_channel" "email" {
   count = var.alert_email != "" ? 1 : 0
 
   project      = var.project_id
-  display_name = "${local.name} alerts"
+  display_name = "${var.name} alerts"
   type         = "email"
   labels = {
     email_address = var.alert_email
@@ -22,13 +21,13 @@ resource "google_monitoring_alert_policy" "pod_restarts" {
   count = var.alert_email != "" ? 1 : 0
 
   project      = var.project_id
-  display_name = "${local.name} — pod restarts"
+  display_name = "${var.name} — pod restarts"
   combiner     = "OR"
 
   conditions {
     display_name = "Containers restarting frequently"
     condition_threshold {
-      filter          = "resource.type=\"k8s_container\" AND metric.type=\"kubernetes.io/container/restart_count\" AND resource.labels.cluster_name=\"${google_container_cluster.primary.name}\""
+      filter          = "resource.type=\"k8s_container\" AND metric.type=\"kubernetes.io/container/restart_count\" AND resource.labels.cluster_name=\"${var.cluster_name}\""
       duration        = "300s"
       comparison      = "COMPARISON_GT"
       threshold_value = 0.05
@@ -47,37 +46,31 @@ resource "google_monitoring_alert_policy" "pod_restarts" {
     content   = "Check: kubectl get pods -A | grep -v Running"
     mime_type = "text/markdown"
   }
-
-  depends_on = [google_project_service.apis]
 }
-
-# --- Logging archive ---------------------------------------------------------
 
 resource "google_storage_bucket" "logs" {
   project                     = var.project_id
-  name                        = "${var.project_id}-${local.name}-logs"
+  name                        = "${var.project_id}-${var.name}-logs"
   location                    = var.region
   uniform_bucket_level_access = true
   force_destroy               = false
-  labels                      = local.labels
+  labels                      = var.labels
 
   lifecycle_rule {
     condition { age = 90 }
     action { type = "Delete" }
   }
-
-  depends_on = [google_project_service.apis]
 }
 
 resource "google_logging_project_sink" "gke_logs" {
   project                = var.project_id
-  name                   = "${local.name}-gke-logs"
+  name                   = "${var.name}-gke-logs"
   destination            = "storage.googleapis.com/${google_storage_bucket.logs.name}"
   unique_writer_identity = true
 
   filter = <<-EOT
     resource.type=("k8s_container" OR "k8s_cluster" OR "k8s_node")
-    resource.labels.cluster_name="${google_container_cluster.primary.name}"
+    resource.labels.cluster_name="${var.cluster_name}"
   EOT
 }
 
@@ -87,8 +80,6 @@ resource "google_storage_bucket_iam_member" "logs_writer" {
   member = google_logging_project_sink.gke_logs.writer_identity
 }
 
-# --- Backup for GKE ----------------------------------------------------------
-
 data "google_project" "current" {
   project_id = var.project_id
 }
@@ -97,15 +88,13 @@ resource "google_project_iam_member" "backup_agent" {
   project = var.project_id
   role    = "roles/container.admin"
   member  = "serviceAccount:service-${data.google_project.current.number}@gcp-sa-gkebackup.iam.gserviceaccount.com"
-
-  depends_on = [google_project_service.apis]
 }
 
 resource "google_gke_backup_backup_plan" "daily" {
   project  = var.project_id
-  name     = "${local.name}-daily"
+  name     = "${var.name}-daily"
   location = var.region
-  cluster  = google_container_cluster.primary.id
+  cluster  = var.cluster_id
 
   retention_policy {
     backup_retain_days      = 14
@@ -113,7 +102,7 @@ resource "google_gke_backup_backup_plan" "daily" {
   }
 
   backup_schedule {
-    cron_schedule = "0 2 * * *" # 02:00 UTC daily
+    cron_schedule = "0 2 * * *"
   }
 
   backup_config {
@@ -122,10 +111,17 @@ resource "google_gke_backup_backup_plan" "daily" {
     all_namespaces      = true
   }
 
-  labels = local.labels
+  labels = var.labels
 
   depends_on = [
-    google_container_node_pool.primary,
     google_project_iam_member.backup_agent,
   ]
+}
+
+output "logs_bucket" {
+  value = google_storage_bucket.logs.name
+}
+
+output "backup_plan" {
+  value = google_gke_backup_backup_plan.daily.name
 }

@@ -1,0 +1,7 @@
+name: template-aws
+runtime:
+  name: nodejs
+  options:
+    typescript: true
+description: AWS EKS + VPC + ECR + IRSA for the template monorepo
+main: index.ts

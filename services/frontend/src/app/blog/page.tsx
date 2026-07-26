@@ -4,9 +4,9 @@ import Link from "next/link";
 import { Callout, CodeBlock, Step } from "@/components/blog";
 
 export const metadata: Metadata = {
-  title: "From zero to running — Template setup guide",
+  title: "Template — fullstack & DevOps setup guide",
   description:
-    "Step-by-step: backend, frontend, Docker, Kubernetes, Helm, Terraform, and monitoring",
+    "FastAPI, Next.js, Kubernetes, Helm, Terraform, Pulumi, and GitHub Actions CI/CD — local to cloud",
 };
 
 const TOC = [
@@ -20,7 +20,7 @@ const TOC = [
   { n: 8, title: "Monitoring (Prometheus + Grafana)" },
   { n: 9, title: "Ship a new image to kind" },
   { n: 10, title: "Argo CD (GitOps)" },
-  { n: 11, title: "Production path (Terraform + GKE)" },
+  { n: 11, title: "Production path (IaC + GitHub Actions)" },
   { n: 12, title: "Rollback (Helm or kubectl)" },
   { n: 13, title: "How the pieces connect" },
 ] as const;
@@ -49,6 +49,18 @@ export default function BlogPage() {
           <Link href="/" className="hover:text-ink">
             Home
           </Link>
+          <Link href="/blog/monitoring" className="hover:text-ink">
+            Monitoring
+          </Link>
+          <Link href="/blog/terraform" className="hover:text-ink">
+            Terraform
+          </Link>
+          <Link href="/blog/pulumi" className="hover:text-ink">
+            Pulumi
+          </Link>
+          <Link href="/blog/github-actions" className="hover:text-ink">
+            Actions
+          </Link>
           <a href="#toc" className="hover:text-ink">
             Contents
           </a>
@@ -60,13 +72,16 @@ export default function BlogPage() {
         <p className="font-display text-5xl font-extrabold tracking-tight text-ink md:text-6xl">
           Template
         </p>
+        <p className="mt-2 font-display text-lg font-semibold tracking-tight text-accent md:text-xl">
+          for fullstack &amp; DevOps
+        </p>
         <h1 className="mt-4 max-w-xl text-xl font-medium leading-snug text-ink/90 md:text-2xl">
-          From zero to a running stack — backend, frontend, Kubernetes, Helm,
-          and Terraform
+          App code, Kubernetes, cloud IaC, and CI/CD — one monorepo walkthrough
         </h1>
         <p className="mt-5 max-w-xl text-[15px] leading-7 text-muted">
-          A practical walkthrough of this monorepo: what each layer does, why it
-          exists, and the exact commands to run locally and toward GKE.
+          FastAPI and Next.js locally; Helm on kind; Terraform or Pulumi in the
+          cloud; GitHub Actions for lint, test, image push, and deploy. What each
+          layer does, why it exists, and the commands to run.
         </p>
         <p className="mt-6 font-mono text-xs text-accent">
           ~25 min read · step-by-step · copy-paste commands
@@ -96,16 +111,76 @@ export default function BlogPage() {
               </li>
             ))}
           </ol>
+
+          <p className="mb-3 mt-10 font-mono text-xs uppercase tracking-widest text-muted">
+            Deep dives
+          </p>
+          <ul className="space-y-3">
+            <li>
+              <Link
+                href="/blog/monitoring"
+                className="group block text-[15px] text-muted transition hover:text-ink"
+              >
+                <span className="font-medium text-accent group-hover:underline">
+                  Monitoring & observability
+                </span>
+                <span className="mt-0.5 block text-sm">
+                  /metrics, structured logs, Helm Prometheus, ServiceMonitor, GKE GMP
+                </span>
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/blog/terraform"
+                className="group block text-[15px] text-muted transition hover:text-ink"
+              >
+                <span className="font-medium text-accent group-hover:underline">
+                  Terraform (GCP / GKE)
+                </span>
+                <span className="mt-0.5 block text-sm">
+                  main.tf, variables, locals, outputs, tfvars + every module
+                </span>
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/blog/pulumi"
+                className="group block text-[15px] text-muted transition hover:text-ink"
+              >
+                <span className="font-medium text-accent group-hover:underline">
+                  Pulumi (AWS / EKS)
+                </span>
+                <span className="mt-0.5 block text-sm">
+                  config, vpc, eks, ecr, irsa, stack outputs
+                </span>
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/blog/github-actions"
+                className="group block text-[15px] text-muted transition hover:text-ink"
+              >
+                <span className="font-medium text-accent group-hover:underline">
+                  GitHub Actions (CI/CD)
+                </span>
+                <span className="mt-0.5 block text-sm">
+                  CI, deploy frontend/backend, WIF setup — step-by-step + full YAML
+                </span>
+              </Link>
+            </li>
+          </ul>
         </nav>
 
         <Step n={1} title="What you are building">
           <p>
             This repo is a{" "}
             <strong className="font-medium text-ink">
-              full-stack template
+              fullstack &amp; DevOps template
             </strong>
-            : a FastAPI API, a Next.js UI, and infrastructure that can run on
-            your laptop (kind / Docker Desktop) or on Google Kubernetes Engine.
+            : FastAPI + Next.js, packaged for Kubernetes (Helm), provisioned with
+            Terraform (GCP) or Pulumi (AWS), and shipped with GitHub Actions
+            CI/CD — runnable on your laptop (kind / Docker Desktop) or in the
+            cloud.
           </p>
           <p>
             Traffic in production (and locally via ingress) looks like this:
@@ -371,6 +446,16 @@ kubectl -n template logs -l app.kubernetes.io/component=backend --tail=100`}</Co
             <code className="text-accent">prometheus.io</code> annotations and
             optional ServiceMonitor CRs for the Prometheus Operator.
           </p>
+          <p>
+            For metrics + logs + GKE Managed Prometheus end-to-end, see the{" "}
+            <Link
+              href="/blog/monitoring"
+              className="text-accent hover:underline"
+            >
+              monitoring deep dive
+            </Link>
+            .
+          </p>
           <CodeBlock title="install kube-prometheus-stack">{`helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo update
 
@@ -470,7 +555,7 @@ kubectl apply -f infra/helm/argocd/application-template-app.yaml
           </Callout>
         </Step>
 
-        <Step n={11} title="Production path (Terraform + GKE)">
+        <Step n={11} title="Production path (IaC + GitHub Actions)">
           <p>
             <strong className="text-ink">Terraform</strong> under{" "}
             <code className="text-accent">infra/terraform/</code> is{" "}
@@ -478,14 +563,60 @@ kubectl apply -f infra/helm/argocd/application-template-app.yaml
             GKE cluster, Artifact Registry, Secret Manager wiring,
             ingress-nginx, and GitHub Actions Workload Identity.
           </p>
-          <CodeBlock title="apply infrastructure">{`cd infra/terraform
+          <p>
+            After the cluster exists,{" "}
+            <strong className="text-ink">GitHub Actions</strong> runs CI on every
+            PR, then builds images, pushes to Artifact Registry, and Helm-upgrades
+            GKE on main — see{" "}
+            <Link
+              href="/blog/github-actions"
+              className="text-accent hover:underline"
+            >
+              /blog/github-actions
+            </Link>
+            .
+          </p>
+          <Callout>
+            Deep dives:{" "}
+            <Link href="/blog/terraform" className="text-accent hover:underline">
+              /blog/terraform
+            </Link>
+            ,{" "}
+            <Link href="/blog/pulumi" className="text-accent hover:underline">
+              /blog/pulumi
+            </Link>
+            ,{" "}
+            <Link
+              href="/blog/github-actions"
+              className="text-accent hover:underline"
+            >
+              /blog/github-actions
+            </Link>
+            .
+          </Callout>
+          <CodeBlock title="Terraform (GCP / GKE)">{`cd infra/terraform
 cp terraform.tfvars.example terraform.tfvars
 # edit: project_id, github_repository, alert_email
 
 terraform init
+terraform fmt -recursive && terraform validate
+terraform plan
 terraform apply
 
-eval "$(terraform output -raw get_credentials_command)"`}</CodeBlock>
+eval "$(terraform output -raw get_credentials_command)"
+terraform output -raw artifact_registry_url
+# destroy later: terraform destroy`}</CodeBlock>
+          <CodeBlock title="Pulumi (AWS / EKS)">{`cd infra/pulumi-aws
+npm install
+pulumi stack init dev   # first time
+pulumi config set aws:region us-east-1
+pulumi preview
+pulumi up
+
+eval "$(pulumi stack output getCredentialsCommand)"
+pulumi stack output ecrFrontendUrl
+pulumi stack output irsaAppRoleArn
+# destroy later: pulumi destroy`}</CodeBlock>
           <p>
             Build, push to Artifact Registry, then Helm with production values (
             <code className="text-accent">secrets.provider: csi</code>, HPA on,

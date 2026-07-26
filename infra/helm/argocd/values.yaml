@@ -15,10 +15,10 @@ controller:
 server:
   replicas: 1
   # Local: use port-forward (no Ingress). Enable Ingress on cloud if desired.
+  # Keep TLS enabled: browsers often force https:// on localhost and that
+  # resets an --insecure (HTTP-only) server, which kills kubectl port-forward.
   service:
     type: ClusterIP
-  extraArgs:
-    - --insecure   # skip TLS for local port-forward UI (lab only)
 
 repoServer:
   replicas: 1
@@ -32,10 +32,18 @@ redis-ha:
 # Dex / SSO — leave off for local bootstrap
 configs:
   params:
-    server.insecure: true
+    server.insecure: "false"
   cm:
     # Allow Application CRs in template-argocd (and optionally others)
     application.namespaces: "template-argocd"
+    # kind / Docker Desktop: ingress-nginx LoadBalancer EXTERNAL-IP stays
+    # <pending>, so Ingress.status.loadBalancer stays empty and Argo's
+    # default health stays Progressing forever. Treat Ingress as Healthy.
+    resource.customizations.health.networking.k8s.io_Ingress: |
+      hs = {}
+      hs.status = "Healthy"
+      hs.message = "Ingress accepted (LoadBalancer address optional on local)"
+      return hs
 
 # Keep resource use low on kind
 dex:

@@ -1,0 +1,24 @@
+{
+  "name": "template-aws",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.ts",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "preview": "pulumi preview",
+    "up": "pulumi up",
+    "destroy": "pulumi destroy",
+    "kubeconfig": "pulumi stack output kubeconfig --show-secrets > kubeconfig.yaml"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "@pulumi/aws": "^6.70.0",
+    "@pulumi/awsx": "^2.21.0",
+    "@pulumi/eks": "^3.8.0",
+    "@pulumi/kubernetes": "^4.21.0",
+    "@pulumi/pulumi": "^3.150.0"
+  }
+}

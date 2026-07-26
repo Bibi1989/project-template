@@ -26,8 +26,9 @@ const syne = Syne({
 });
 
 export const metadata: Metadata = {
-  title: "Template Platform",
-  description: "FastAPI + Next.js on Kubernetes — local to GKE",
+  title: "Template — fullstack & DevOps",
+  description:
+    "FastAPI + Next.js on Kubernetes, with Helm, Terraform/Pulumi, and GitHub Actions CI/CD",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

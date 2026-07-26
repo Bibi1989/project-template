@@ -1,6 +1,4 @@
 # Variables — only what you usually change
-#
-# Everything else uses sensible defaults inside the .tf files.
 
 variable "project_id" {
   description = "GCP project ID"
@@ -38,14 +36,5 @@ variable "app_secrets" {
     DATABASE_URL   = "postgresql://user:pass@db:5432/app"
     API_SECRET_KEY = "change-me-in-production"
     CORS_ORIGINS   = "*"
-  }
-}
-
-# Shared names / labels used by every resource file
-locals {
-  name   = var.name_prefix
-  labels = {
-    managed-by  = "terraform"
-    environment = "production"
   }
 }

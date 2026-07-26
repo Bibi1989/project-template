@@ -1,7 +1,15 @@
-# Ingress — edge reverse proxy
-#
-# 1) GCP Secret Manager CSI provider (lets pods mount secrets)
-# 2) ingress-nginx → creates an external Load Balancer automatically
+# Cluster add-ons: Secret CSI provider + ingress-nginx
+
+terraform {
+  required_providers {
+    kubernetes = {
+      source = "hashicorp/kubernetes"
+    }
+    helm = {
+      source = "hashicorp/helm"
+    }
+  }
+}
 
 resource "helm_release" "csi_provider" {
   name       = "csi-secrets-store-provider-gcp"
@@ -12,16 +20,12 @@ resource "helm_release" "csi_provider" {
 
   wait    = true
   timeout = 300
-
-  depends_on = [google_container_node_pool.primary]
 }
 
 resource "kubernetes_namespace" "ingress_nginx" {
   metadata {
     name = "ingress-nginx"
   }
-
-  depends_on = [google_container_node_pool.primary]
 }
 
 resource "helm_release" "ingress_nginx" {

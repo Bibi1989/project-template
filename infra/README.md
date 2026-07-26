@@ -4,13 +4,19 @@
 |------|----------------|
 | `config.env` | **Single place** for `NAME_PREFIX` (default `template`) |
 | `terraform/` | **GCP only** — VPC, GKE, GAR, Secret Manager, ingress-nginx, WIF |
+| `pulumi-aws/` | **AWS only** — VPC, EKS, ECR, IRSA (Pulumi TypeScript) |
 | `helm/app/` | App chart — works on **local / GKE / EKS / AKS** via values files |
 | `helm/monitoring/` | Prometheus + Grafana (`kube-prometheus-stack`) → ns `template-monitoring` |
 | `helm/argocd/` | Argo CD GitOps → ns `template-argocd` |
 
-> Rename once: edit `NAME_PREFIX` in `config.env`, then set Terraform `name_prefix` and Helm `global.namePrefix` to the same value.
+> Rename once: edit `NAME_PREFIX` in `config.env`, then set Terraform `name_prefix`, Pulumi `namePrefix`, and Helm `global.namePrefix` to the same value.
 
 **Helm multi-cloud:** see [`helm/app/README.md`](helm/app/README.md) (`values-aws.yaml`, `values-azure.yaml`, `secrets.provider: kubernetes` vs `csi`).
+
+**In-app docs (blog):** with the frontend running, open
+[`/blog/terraform`](http://127.0.0.1:3000/blog/terraform) and
+[`/blog/pulumi`](http://127.0.0.1:3000/blog/pulumi) for module/file guides with
+copyable examples.
 
 ```text
 Internet
@@ -25,7 +31,21 @@ Load Balancer  ←  ingress-nginx (installed by Terraform)
               Secret Manager (via CSI)
 ```
 
-## Apply (Terraform)
+## Apply (AWS / EKS — Pulumi)
+
+Full guide: **[`pulumi-aws/README.md`](pulumi-aws/README.md)**
+
+```bash
+cd pulumi-aws
+npm install
+pulumi stack init dev   # first time
+pulumi up
+eval "$(pulumi stack output getCredentialsCommand)"
+```
+
+Then Helm with `-f helm/app/values-aws.yaml` and ECR URLs from `pulumi stack output`.
+
+## Apply (GCP / GKE — Terraform)
 
 ```bash
 cd terraform
@@ -77,17 +97,18 @@ helm upgrade --install template-argocd argo/argo-cd \
 
 ## Terraform file map
 
-Read them top-to-bottom in this order:
-
-| File | Responsibility |
+| Path | Responsibility |
 |------|----------------|
-| `providers.tf` | Terraform + GCP/Helm providers |
-| `variables.tf` | The few inputs you configure |
-| `network.tf` | VPC, subnet, NAT, firewall |
-| `gke.tf` | GKE cluster, nodes, service accounts |
-| `registry.tf` | Artifact Registry (Docker images) |
-| `secrets.tf` | Secret Manager + IAM |
-| `ingress.tf` | NGINX Ingress + Secret CSI provider |
-| `ops.tf` | Monitoring alert, log export, Backup for GKE |
-| `github.tf` | Workload Identity for GitHub Actions |
+| `main.tf` | Module wiring |
+| `modules/apis` | Enable GCP APIs |
+| `modules/network` | VPC, subnet, NAT, firewall |
+| `modules/gke` | GKE cluster, nodes, service accounts |
+| `modules/registry` | Artifact Registry |
+| `modules/secrets` | Secret Manager + IAM |
+| `modules/github_wif` | Workload Identity for GitHub Actions |
+| `modules/ops` | Alerts, log export, Backup for GKE |
+| `modules/addons` | NGINX Ingress + Secret CSI provider |
+| `moved.tf` | State migration from flat layout |
 | `outputs.tf` | Values CI and Helm need |
+
+Details: [`terraform/README.md`](terraform/README.md)

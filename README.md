@@ -15,6 +15,7 @@ services/
 infra/
   README.md   ← start here for infrastructure
   terraform/  GCP resources (GKE-focused IaC)
+  pulumi-aws/ AWS EKS + VPC + ECR + IRSA (Pulumi)
   helm/app/   Dynamic chart (`apps.*` → Deployment/Service/HPA) — local / GKE / EKS / AKS
   helm/monitoring/  Prometheus + Grafana → namespace `template-monitoring`
   helm/argocd/      Argo CD GitOps → namespace `template-argocd`

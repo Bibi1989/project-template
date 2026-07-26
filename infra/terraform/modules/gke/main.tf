@@ -1,15 +1,19 @@
-# GKE — private regional cluster + node pool
-#
-# Built-in: Workload Identity, Secrets Store CSI, Managed Prometheus,
-#           Cloud Logging (system + workloads), Cloud Monitoring
+variable "project_id" { type = string }
+variable "region" { type = string }
+variable "name" { type = string }
+variable "network" { type = string }
+variable "subnetwork" { type = string }
+variable "pods_range_name" { type = string }
+variable "services_range_name" { type = string }
+variable "labels" { type = map(string) }
 
-resource "google_service_account" "gke_nodes" {
-  account_id   = "${local.name}-gke-nodes"
+resource "google_service_account" "nodes" {
+  account_id   = "${var.name}-gke-nodes"
   display_name = "GKE nodes"
   project      = var.project_id
 }
 
-resource "google_project_iam_member" "gke_nodes" {
+resource "google_project_iam_member" "nodes" {
   for_each = toset([
     "roles/logging.logWriter",
     "roles/monitoring.metricWriter",
@@ -19,12 +23,11 @@ resource "google_project_iam_member" "gke_nodes" {
 
   project = var.project_id
   role    = each.value
-  member  = "serviceAccount:${google_service_account.gke_nodes.email}"
+  member  = "serviceAccount:${google_service_account.nodes.email}"
 }
 
-# Used by app pods (via Workload Identity) to read Secret Manager
 resource "google_service_account" "workload_app" {
-  account_id   = "${local.name}-workload-app"
+  account_id   = "${var.name}-workload-app"
   display_name = "App workloads"
   project      = var.project_id
 }
@@ -38,19 +41,18 @@ resource "google_project_iam_member" "workload_app_secrets" {
 resource "google_service_account_iam_member" "workload_identity" {
   service_account_id = google_service_account.workload_app.name
   role               = "roles/iam.workloadIdentityUser"
-  # KSA name matches Helm: {name_prefix}-app in namespace {name_prefix}
-  member = "serviceAccount:${var.project_id}.svc.id.goog[${local.name}/${local.name}-app]"
+  member             = "serviceAccount:${var.project_id}.svc.id.goog[${var.name}/${var.name}-app]"
 }
 
 resource "google_container_cluster" "primary" {
   provider = google-beta
 
-  name     = "${local.name}-gke"
+  name     = "${var.name}-gke"
   project  = var.project_id
   location = var.region
 
-  network    = google_compute_network.vpc.name
-  subnetwork = google_compute_subnetwork.private.name
+  network    = var.network
+  subnetwork = var.subnetwork
 
   remove_default_node_pool = true
   initial_node_count       = 1
@@ -61,8 +63,8 @@ resource "google_container_cluster" "primary" {
   }
 
   ip_allocation_policy {
-    cluster_secondary_range_name  = "${local.name}-pods"
-    services_secondary_range_name = "${local.name}-services"
+    cluster_secondary_range_name  = var.pods_range_name
+    services_secondary_range_name = var.services_range_name
   }
 
   private_cluster_config {
@@ -71,7 +73,6 @@ resource "google_container_cluster" "primary" {
     master_ipv4_cidr_block  = "172.16.0.0/28"
   }
 
-  # Tighten this CIDR in production
   master_authorized_networks_config {
     cidr_blocks {
       cidr_block   = "0.0.0.0/0"
@@ -93,9 +94,11 @@ resource "google_container_cluster" "primary" {
     gce_persistent_disk_csi_driver_config {
       enabled = true
     }
-    secrets_store_csi_driver_config {
-      enabled = true
-    }
+  }
+
+  # Secret Manager add-on (pods can use Secret Manager via CSI / Workload Identity)
+  secret_manager_config {
+    enabled = true
   }
 
   logging_config {
@@ -109,21 +112,17 @@ resource "google_container_cluster" "primary" {
     }
   }
 
-  resource_labels = local.labels
+  resource_labels = var.labels
 
   lifecycle {
     ignore_changes = [node_pool]
   }
 
-  depends_on = [
-    google_project_service.apis,
-    google_compute_router_nat.nat,
-    google_project_iam_member.gke_nodes,
-  ]
+  depends_on = [google_project_iam_member.nodes]
 }
 
 resource "google_container_node_pool" "primary" {
-  name     = "${local.name}-pool"
+  name     = "${var.name}-pool"
   project  = var.project_id
   location = var.region
   cluster  = google_container_cluster.primary.name
@@ -145,10 +144,10 @@ resource "google_container_node_pool" "primary" {
     disk_size_gb    = 100
     disk_type       = "pd-balanced"
     image_type      = "COS_CONTAINERD"
-    service_account = google_service_account.gke_nodes.email
+    service_account = google_service_account.nodes.email
     oauth_scopes    = ["https://www.googleapis.com/auth/cloud-platform"]
     tags            = ["gke-node"]
-    labels          = local.labels
+    labels          = var.labels
 
     metadata = {
       disable-legacy-endpoints = "true"
@@ -161,6 +160,14 @@ resource "google_container_node_pool" "primary" {
     shielded_instance_config {
       enable_secure_boot          = true
       enable_integrity_monitoring = true
+    }
+  }
+}
+
+terraform {
+  required_providers {
+    google-beta = {
+      source = "hashicorp/google-beta"
     }
   }
 }
